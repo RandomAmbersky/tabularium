@@ -1,6 +1,14 @@
-# Tabularium
 
-Tabularium is a markdown-oriented document store with full-text search, a real directory tree, and several ways to work with the same data: web UI, CLI, REST, JSON-RPC, MCP, or the Rust library.
+<h2>
+  Tabularium - markdown document assembly
+  <a href="https://crates.io/crates/gateryx"><img alt="crates.io page" src="https://img.shields.io/crates/v/gateryx.svg"></img></a>
+  <a href="https://docs.rs/gateryx"><img alt="docs.rs page" src="https://docs.rs/gateryx/badge.svg"></img></a>
+</h2>
+
+
+Tabularium is an AI-oriented markdown-oriented document store with full-text
+search, a real directory tree, and several ways to work with the same data: web
+UI, CLI, REST, JSON-RPC, MCP, or the Rust library.
 
 ## What It Does
 
