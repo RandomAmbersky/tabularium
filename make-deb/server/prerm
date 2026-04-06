@@ -8,6 +8,7 @@ remove | upgrade | deconfigure)
         else
             rm -f /run/tabularium-deb-was-active
         fi
+        echo "Stopping: tabularium-server.service"
         systemctl stop tabularium-server.service || true
     fi
     ;;

@@ -21,14 +21,18 @@ configure)
     fi
     if [ -x /bin/systemctl ] && [ -d /run/systemd/system ]; then
         systemctl daemon-reload || true
+        echo "Enabling: tabularium-server.service"
         systemctl enable tabularium-server.service || true
         if [ -f /run/tabularium-deb-was-active ]; then
             rm -f /run/tabularium-deb-was-active
+            echo "Restarting: tabularium-server.service"
             systemctl restart tabularium-server.service || true
         elif [ -n "$2" ]; then
             # Upgrade or reconfigure: restart only if already active (no surprise start).
+            echo "Restarting if active: tabularium-server.service"
             systemctl try-restart tabularium-server.service || true
         else
+            echo "Starting: tabularium-server.service"
             systemctl start tabularium-server.service || true
         fi
     fi
