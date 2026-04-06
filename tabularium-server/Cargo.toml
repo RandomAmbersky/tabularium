@@ -19,6 +19,7 @@ path = "src/main.rs"
 [dependencies]
 bma-ts = "0.2.6"
 axum = { version = "0.8", features = ["ws"] }
+clap = { version = "4", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
 include_dir = "0.7"

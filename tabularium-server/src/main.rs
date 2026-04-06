@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use clap::Parser;
 use tabularium_server::{config, web};
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
@@ -100,13 +101,19 @@ fn init_tracing() {
     }
 }
 
+#[derive(Parser)]
+#[command(name = "tabularium-server", version, about)]
+struct Cli {
+    /// Path to the TOML configuration file
+    #[arg(short = 'c', long = "config", default_value = "config.toml")]
+    config: PathBuf,
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     init_tracing();
 
-    let cfg_path = std::env::args()
-        .nth(1)
-        .map_or_else(|| PathBuf::from("config.toml"), PathBuf::from);
-    let cfg = config::load(&cfg_path)?;
+    let cli = Cli::parse();
+    let cfg = config::load(&cli.config)?;
 
     if let Some(parent) = cfg.server.database_path.parent() {
         std::fs::create_dir_all(parent)?;

@@ -1,6 +1,7 @@
 [server]
 listen = "127.0.0.1:3050"
-# For systemd (see systemd/tabularium-server.service), use absolute paths — the unit does not rely on WorkingDirectory.
+# For systemd (see systemd/tabularium-server.service), install as e.g. /etc/tabularium/config.toml
+# and run: tabularium-server --config /etc/tabularium/config.toml (the unit uses absolute paths; no WorkingDirectory).
 database_path = "./data/tabularium.db"
 index_dir = "./data/tabularium.index"
 # Tokio worker threads; 0 = use available_parallelism()

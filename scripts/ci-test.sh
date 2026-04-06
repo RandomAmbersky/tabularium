@@ -145,7 +145,7 @@ apt-get install -y -qq chromium-browser chromium-chromedriver 2>/dev/null || tru
 export TABULARIUM_CI=1
 
 RUST_LOG="${RUST_LOG:-warn}" nohup "$REMOTE_DIR/target/release/tabularium-server" \
-  "$CI_TMP/config.toml" >"$CI_TMP/server.log" 2>&1 &
+  --config "$CI_TMP/config.toml" >"$CI_TMP/server.log" 2>&1 &
 SERVER_PID=$!
 
 # Pytest + Selenium must use CI host IP, never loopback (AGENTS.md).

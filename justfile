@@ -11,7 +11,7 @@ build-ui:
 
 # Uses `config.toml` if present, else `config.toml.example` (fresh clones work without copying).
 run: build-ui
-    bash -ec 'cfg=config.toml; [[ -f "$cfg" ]] || cfg=config.toml.example; exec cargo run -p tabularium-server --release -- "$cfg"'
+    bash -ec 'cfg=config.toml; [[ -f "$cfg" ]] || cfg=config.toml.example; exec cargo run -p tabularium-server --release -- --config "$cfg"'
 
 tb *args:
     cargo run -p tabularium-cli --release -- {{args}}
