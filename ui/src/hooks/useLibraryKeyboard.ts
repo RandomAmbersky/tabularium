@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 export interface LibraryKeyboardHandlers {
   onArrowUp: () => void;
@@ -23,9 +23,10 @@ export function useLibraryKeyboard(
 ): void {
   const ref = useRef(handlers);
   const enabledRef = useRef(enabled);
-  /** Render-phase sync so keydown never sees a stale handler (Left-at-root rite). */
-  ref.current = handlers;
-  enabledRef.current = enabled;
+  useLayoutEffect(() => {
+    ref.current = handlers;
+    enabledRef.current = enabled;
+  }, [enabled, handlers]);
 
   useEffect(() => {
     if (!enabled) {

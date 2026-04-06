@@ -33,8 +33,11 @@ export function useDocumentChat(
 
   const wsRef = useRef<WebSocket | null>(null);
   const genRef = useRef(0);
-  const pathRef = useRef<string | null>(path);
-  pathRef.current = path;
+  const pathRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    pathRef.current = path;
+  }, [path]);
 
   const reconnect = useCallback(() => {
     setReconnectTick((n) => n + 1);
@@ -65,15 +68,14 @@ export function useDocumentChat(
         wsRef.current.close();
         wsRef.current = null;
       }
-      setTranscript("");
-      setStatus("idle");
-      setErrorMessage(null);
       return;
     }
 
     const gen = ++genRef.current;
-    setStatus("connecting");
-    setErrorMessage(null);
+    queueMicrotask(() => {
+      setStatus("connecting");
+      setErrorMessage(null);
+    });
 
     const ws = new WebSocket(documentWsUrl());
     wsRef.current = ws;
@@ -147,10 +149,12 @@ export function useDocumentChat(
     };
   }, [enabled, path, reconnectTick]);
 
+  const active = enabled && path != null;
+
   return {
-    transcript,
-    status,
-    errorMessage,
+    transcript: active ? transcript : "",
+    status: active ? status : "idle",
+    errorMessage: active ? errorMessage : null,
     reconnect,
     sendSay,
   };

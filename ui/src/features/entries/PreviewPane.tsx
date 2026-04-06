@@ -5,12 +5,15 @@ import {
   useMemo,
   useState,
   type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
 } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import { defaultSchema } from "hast-util-sanitize";
 import type { Schema } from "hast-util-sanitize";
+import { useNavigate } from "react-router-dom";
 import { getDocument, putDocument } from "../../api/client";
 import { DocumentChatBody } from "../chat/DocumentChatBody";
 import {
@@ -23,6 +26,8 @@ import {
   extendSchemaWithGfmTables,
   gfmTableSanitizeSchema,
 } from "../../markdown/gfmSanitize";
+import { parentPath } from "./entryModel";
+import { withOpenDocQuery } from "./entriesPath";
 import styles from "./PreviewPane.module.scss";
 
 const sanitizeWithMark: Schema = extendSchemaWithGfmTables({
@@ -81,6 +86,7 @@ export const PreviewPane = forwardRef<HTMLDivElement, PreviewPaneProps>(
     },
     ref,
   ) {
+    const navigate = useNavigate();
     const [rawMode, setRawMode] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [draft, setDraft] = useState("");
@@ -116,6 +122,112 @@ export const PreviewPane = forwardRef<HTMLDivElement, PreviewPaneProps>(
       }
       return splitPlainTextForPreview(content, rawTerms);
     }, [content, highlightActive, rawTerms]);
+
+    const openDocDir = useMemo(() => {
+      if (!pathLabel) {
+        return null;
+      }
+      return parentPath(pathLabel);
+    }, [pathLabel]);
+
+    const resolveHref = useCallback(
+      (hrefRaw: string): { kind: "passthrough" } | { kind: "navigate"; url: string } => {
+        const href = hrefRaw.trim();
+        if (href === "") {
+          return { kind: "passthrough" };
+        }
+        if (href.startsWith("#")) {
+          return { kind: "passthrough" };
+        }
+        const lower = href.toLowerCase();
+        if (
+          lower.startsWith("http://") ||
+          lower.startsWith("https://") ||
+          lower.startsWith("mailto:") ||
+          lower.startsWith("tel:")
+        ) {
+          return { kind: "passthrough" };
+        }
+
+        const [pathPart, hashPart] = href.split("#", 2);
+        const hashSuffix = hashPart != null && hashPart !== "" ? `#${hashPart}` : "";
+        const decodedPath = (() => {
+          try {
+            return decodeURIComponent(pathPart);
+          } catch {
+            return pathPart;
+          }
+        })();
+
+        const normalizeAbs = (absPath: string): string => {
+          const segs = absPath.split("/").filter(Boolean);
+          const out: string[] = [];
+          for (const s of segs) {
+            if (s === "." || s === "") {
+              continue;
+            }
+            if (s === "..") {
+              if (out.length > 0) {
+                out.pop();
+              }
+              continue;
+            }
+            out.push(s);
+          }
+          return `/${out.join("/")}`;
+        };
+
+        const baseDir = openDocDir ?? "/";
+        const targetAbs = decodedPath.startsWith("/")
+          ? normalizeAbs(decodedPath)
+          : normalizeAbs(baseDir === "/" ? `/${decodedPath}` : `${baseDir}/${decodedPath}`);
+
+        const targetDir = parentPath(targetAbs);
+        const url = `${withOpenDocQuery(targetDir, targetAbs)}${hashSuffix}`;
+        return { kind: "navigate", url };
+      },
+      [openDocDir],
+    );
+
+    const markdownComponents = useMemo(() => {
+      return {
+        a: ({
+          href,
+          children,
+          ...props
+        }: {
+          href?: string;
+          children?: ReactNode;
+          onClick?: (e: MouseEvent<HTMLAnchorElement>) => void;
+        }) => {
+          const safeHref = href ?? "";
+          const action = resolveHref(safeHref);
+          if (action.kind === "navigate") {
+            return (
+              <a
+                href={action.url}
+                {...props}
+                onClick={(e) => {
+                  props.onClick?.(e);
+                  if (e.defaultPrevented) {
+                    return;
+                  }
+                  e.preventDefault();
+                  navigate(action.url);
+                }}
+              >
+                {children}
+              </a>
+            );
+          }
+          return (
+            <a href={safeHref} {...props}>
+              {children}
+            </a>
+          );
+        },
+      };
+    }, [navigate, resolveHref]);
 
     const showDoc = !loading && !error && content !== null;
     const docIdentified = pathLabel != null && !error;
@@ -351,6 +463,7 @@ export const PreviewPane = forwardRef<HTMLDivElement, PreviewPaneProps>(
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={rehypePlugins}
+                components={markdownComponents}
               >
                 {content}
               </ReactMarkdown>

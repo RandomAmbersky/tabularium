@@ -50,27 +50,13 @@ export const DocumentChatBody = forwardRef<
   HTMLDivElement,
   DocumentChatBodyProps
 >(function DocumentChatBody({ path, documentSurfaceChat }, ref) {
+  const cookieNick = readChatNicknameFromCookie();
   const [gateNick, setGateNick] = useState("");
-  const [sessionNick, setSessionNick] = useState<string | null>(null);
-  const [chatLive, setChatLive] = useState(false);
+  const [sessionNick, setSessionNick] = useState<string | null>(cookieNick);
+  const [chatLive, setChatLive] = useState(cookieNick != null);
   const [composer, setComposer] = useState("");
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
-
-  useLayoutEffect(() => {
-    if (!documentSurfaceChat) {
-      return;
-    }
-    const c = readChatNicknameFromCookie();
-    if (c) {
-      setSessionNick(c);
-      setChatLive(true);
-    } else {
-      setSessionNick(null);
-      setChatLive(false);
-      setGateNick("");
-    }
-  }, [documentSurfaceChat, path]);
 
   const hookEnabled = documentSurfaceChat && chatLive && sessionNick != null;
   const { transcript, status, errorMessage, reconnect, sendSay } =
