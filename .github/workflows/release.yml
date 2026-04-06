@@ -1,65 +1,27 @@
-name: CI
+name: Release
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Build UI
-        run: cd ui && npm ci && npm run build
-      - name: cargo test
-        run: cargo test --workspace --release
-  fmt:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install rustfmt
-        run: rustup component add rustfmt
-      - name: cargo fmt
-        run: cargo fmt --check
-  clippy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Build UI
-        run: cd ui && npm ci && npm run build
-      - name: Install clippy
-        run: rustup component add clippy
-      - name: cargo clippy
-        run: |
-          cargo clippy --all-features --all-targets -- -W clippy::all -W clippy::pedantic \
-          -A clippy::used-underscore-binding \
-          -A clippy::doc_markdown \
-          -A clippy::needless_pass_by_value \
-          -A clippy::must_use_candidate \
-          -A clippy::return_self_not_must_use \
-          -A clippy::missing_errors_doc \
-          -A clippy::single_match \
-          -A clippy::uninlined_format_args \
-          -A clippy::no_effect_underscore_binding \
-          -A clippy::large_futures
-
-  macos-artifacts:
-    name: macos artifacts ${{ matrix.target }}
+  build-release:
+    name: build ${{ matrix.target }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
           - runner: macos-14
             target: aarch64-apple-darwin
           - runner: macos-13
@@ -82,6 +44,7 @@ jobs:
         run: cargo build --release --target "${{ matrix.target }}" -p tabularium-cli -p tabularium-server
 
       - name: Prepare macOS archives
+        if: contains(matrix.target, 'apple-darwin')
         run: |
           set -euo pipefail
           mkdir -p dist
@@ -90,6 +53,7 @@ jobs:
           tar -C "target/${{ matrix.target }}/release" -czf "dist/tabularium-server-${VERSION}-${{ matrix.target }}.tar.gz" tabularium-server
 
       - name: Validate macOS archives and binaries
+        if: contains(matrix.target, 'apple-darwin')
         run: |
           set -euo pipefail
           VERSION="${GITHUB_REF_NAME//\//-}"
@@ -124,6 +88,7 @@ jobs:
           [[ "$SERVER_OTOOL_OUT" != *".so"* ]]
 
       - name: Generate macOS checksums
+        if: contains(matrix.target, 'apple-darwin')
         run: |
           set -euo pipefail
           VERSION="${GITHUB_REF_NAME//\//-}"
@@ -132,12 +97,13 @@ jobs:
             "dist/tabularium-server-${VERSION}-${{ matrix.target }}.tar.gz" \
             > "dist/SHA256SUMS-${{ matrix.target }}.txt"
 
-      - name: Upload CI artifacts
-        uses: actions/upload-artifact@v4
+      - name: Upload release assets
+        if: contains(matrix.target, 'apple-darwin') && startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
         with:
-          name: macos-assets-${{ matrix.target }}-${{ github.run_id }}
-          path: |
-            dist/tb-*.tar.gz
-            dist/tabularium-server-*.tar.gz
+          files: |
+            dist/tb-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+            dist/tabularium-server-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
             dist/SHA256SUMS-${{ matrix.target }}.txt
-          if-no-files-found: error
+          fail_on_unmatched_files: true
+          append_body: true
