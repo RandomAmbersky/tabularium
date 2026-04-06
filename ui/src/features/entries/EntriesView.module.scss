@@ -137,6 +137,13 @@
   flex-direction: column;
 }
 
+.previewPaneWrapFullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: $z-preview-overlay;
+  background: $bg-deep;
+}
+
 .mobileHidden {
   @media (max-width: 768px) {
     display: none !important;

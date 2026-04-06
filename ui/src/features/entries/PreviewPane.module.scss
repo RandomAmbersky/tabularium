@@ -80,6 +80,11 @@
   }
 }
 
+.fullToggle {
+  @extend %editBtn;
+  color: $accent;
+}
+
 .chatToggle {
   @extend %editBtn;
   color: $accent;
@@ -275,8 +280,8 @@
   font-size: 0.85rem;
 
   :global(mark.previewHighlight) {
-    background: color-mix(in srgb, $accent 32%, transparent);
-    color: $text;
+    background: color-mix(in srgb, $risk 70%, transparent);
+    color: #fff;
     padding: 0.06em 0.12em;
     border-radius: 3px;
   }
@@ -412,8 +417,8 @@
   }
 
   :global(mark.previewHighlight) {
-    background: color-mix(in srgb, $accent 32%, transparent);
-    color: $text;
+    background: color-mix(in srgb, $risk 70%, transparent);
+    color: #fff;
     padding: 0.06em 0.12em;
     border-radius: 3px;
     box-decoration-break: clone;

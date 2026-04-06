@@ -45,6 +45,8 @@ interface PreviewPaneProps {
   highlightQuery: string | null;
   documentSurface: DocumentSurface;
   onDocumentSurfaceChange: (surface: DocumentSurface) => void;
+  fullscreen: boolean;
+  onToggleFullscreen: () => void;
   /** Fires when edit mode or dirty flag changes (navigation guard in parent). */
   onEditSessionChange?: (state: EditSessionState) => void;
   /** After successful PUT; parent should refetch document body. */
@@ -65,6 +67,8 @@ export const PreviewPane = forwardRef<HTMLDivElement, PreviewPaneProps>(
       highlightQuery,
       documentSurface,
       onDocumentSurfaceChange,
+      fullscreen,
+      onToggleFullscreen,
       onEditSessionChange,
       onDocumentSaved,
       onPreviewContentSynced,
@@ -114,6 +118,11 @@ export const PreviewPane = forwardRef<HTMLDivElement, PreviewPaneProps>(
     const showRawToggle =
       docIdentified &&
       documentSurface === "preview" &&
+      (showDoc || loading);
+    const showFullscreenToggle =
+      docIdentified &&
+      (documentSurface === "preview" || documentSurface === "chat") &&
+      !editMode &&
       (showDoc || loading);
     const showChatToggle = pathLabel != null && showDoc && !editMode;
     const dirty = editMode && draft !== baseline;
@@ -207,6 +216,19 @@ export const PreviewPane = forwardRef<HTMLDivElement, PreviewPaneProps>(
           </span>
           {showRawToggle || showChatToggle || editMode ? (
             <div className={styles.headerActions}>
+              {showFullscreenToggle ? (
+                <button
+                  type="button"
+                  className={styles.fullToggle}
+                  data-testid="preview-full-toggle"
+                  disabled={loading}
+                  onClick={() => {
+                    onToggleFullscreen();
+                  }}
+                >
+                  {fullscreen ? "Close" : "Full"}
+                </button>
+              ) : null}
               {showRawToggle ? (
                 <button
                   type="button"

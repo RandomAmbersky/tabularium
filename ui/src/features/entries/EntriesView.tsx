@@ -185,6 +185,7 @@ export function EntriesView() {
   const [docReloadNonce, setDocReloadNonce] = useState(0);
   const [documentSurface, setDocumentSurface] =
     useState<DocumentSurface>("preview");
+  const [previewFullscreen, setPreviewFullscreen] = useState(false);
 
   const [entries, setEntries] = useState<ListedEntry[]>([]);
   const [listError, setListError] = useState<string | null>(null);
@@ -507,7 +508,19 @@ export function EntriesView() {
 
   useEffect(() => {
     setDocumentSurface("preview");
+    setPreviewFullscreen(false);
   }, [openDocPath]);
+
+  useEffect(() => {
+    if (!previewFullscreen) {
+      return;
+    }
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [previewFullscreen]);
 
   useLayoutEffect(() => {
     const hq = previewHighlightQuery?.trim() ?? "";
@@ -1269,7 +1282,10 @@ export function EntriesView() {
             </div>
           </div>
           <div
-            className={`${styles.previewPaneWrap} ${!showPreview ? styles.mobileHidden : ""}`}
+            className={`${styles.previewPaneWrap} ${
+              previewFullscreen ? styles.previewPaneWrapFullscreen : ""
+            } ${!showPreview ? styles.mobileHidden : ""}`}
+            data-testid="preview-wrap"
           >
             {isMobile && mobilePanel === "preview" ? (
               <button
@@ -1294,6 +1310,10 @@ export function EntriesView() {
               highlightQuery={previewHighlightQuery}
               documentSurface={documentSurface}
               onDocumentSurfaceChange={setDocumentSurface}
+              fullscreen={previewFullscreen}
+              onToggleFullscreen={() => {
+                setPreviewFullscreen((v) => !v);
+              }}
               onEditSessionChange={onEditSessionChange}
               onDocumentSaved={bumpOpenDocumentReload}
               onPreviewContentSynced={setPreviewContent}

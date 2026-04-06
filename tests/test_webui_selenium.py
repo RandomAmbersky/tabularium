@@ -623,6 +623,106 @@ def test_c3_preview_page_up_down_scroll(selenium_driver, tabularium_base_url, se
     assert t2 < t1
 
 
+def test_c4_preview_fullscreen_overlay_scroll_and_restore(
+    selenium_driver,
+    tabularium_base_url,
+    seed_long_doc: str,
+):
+    selenium_driver.set_window_size(1200, 800)
+    selenium_driver.get(tabularium_base_url + "/entries")
+    _wait_app_ready(selenium_driver)
+    _open_seed_dir_and_wait(selenium_driver, seed_long_doc)
+    selenium_driver.find_element(
+        By.CSS_SELECTOR,
+        "[data-entry-name='longscroll.md']",
+    ).click()
+    _wait(selenium_driver).until(
+        EC.text_to_be_present_in_element(
+            (By.CSS_SELECTOR, "[data-testid='preview-pane']"),
+            "Line 10",
+        ),
+    )
+
+    btn = selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='preview-full-toggle']")
+    assert btn.text == "Full"
+    btn.click()
+    _wait(selenium_driver).until(
+        EC.text_to_be_present_in_element(
+            (By.CSS_SELECTOR, "[data-testid='preview-full-toggle']"),
+            "Close",
+        ),
+    )
+
+    def _overlay_ok(d) -> bool:
+        return bool(
+            d.execute_script(
+                """
+                const wrap = document.querySelector("[data-testid='preview-wrap']");
+                if (!wrap) return false;
+                const cs = window.getComputedStyle(wrap);
+                if (cs.position !== "fixed") return false;
+                const r = wrap.getBoundingClientRect();
+                const tol = 2;
+                return (
+                  Math.abs(r.left) <= tol &&
+                  Math.abs(r.top) <= tol &&
+                  Math.abs(r.width - window.innerWidth) <= tol &&
+                  Math.abs(r.height - window.innerHeight) <= tol
+                );
+                """,
+            ),
+        )
+
+    _wait(selenium_driver, 15).until(lambda d: _overlay_ok(d))
+
+    scroll_el = _preview_scroll_body(selenium_driver)
+    t0 = selenium_driver.execute_script("return arguments[0].scrollTop;", scroll_el)
+    selenium_driver.find_element(By.TAG_NAME, "body").send_keys(Keys.PAGE_DOWN)
+    t1 = selenium_driver.execute_script("return arguments[0].scrollTop;", scroll_el)
+    assert t1 > t0
+
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='preview-chat']").click()
+    _wait(selenium_driver).until(
+        EC.text_to_be_present_in_element(
+            (By.CSS_SELECTOR, "[data-testid='preview-chat']"),
+            "Preview",
+        ),
+    )
+    btn2 = selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='preview-full-toggle']")
+    assert btn2.is_displayed()
+    assert btn2.text == "Close"
+    _wait(selenium_driver, 15).until(lambda d: _overlay_ok(d))
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='preview-chat']").click()
+    _wait(selenium_driver).until(
+        EC.text_to_be_present_in_element(
+            (By.CSS_SELECTOR, "[data-testid='preview-chat']"),
+            "Chat",
+        ),
+    )
+    btn3 = selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='preview-full-toggle']")
+    assert btn3.is_displayed()
+    assert btn3.text == "Close"
+    _wait(selenium_driver, 15).until(lambda d: _overlay_ok(d))
+
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='preview-full-toggle']").click()
+    _wait(selenium_driver).until(
+        EC.text_to_be_present_in_element(
+            (By.CSS_SELECTOR, "[data-testid='preview-full-toggle']"),
+            "Full",
+        ),
+    )
+    _wait(selenium_driver, 15).until(
+        lambda d: d.execute_script(
+            """
+            const wrap = document.querySelector("[data-testid='preview-wrap']");
+            if (!wrap) return false;
+            const cs = window.getComputedStyle(wrap);
+            return cs.position !== "fixed";
+            """,
+        ),
+    )
+
+
 # --- Group D — stats ---
 
 

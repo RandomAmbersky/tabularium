@@ -9,3 +9,6 @@ $accent-dim: #8f7a1c;
 $risk: #c44;
 /* Console-adjacent directory tint (Enginseer / Ferrum repair pass). */
 $dir-foreground: #8ec8e8;
+
+/* Layering doctrine — avoid magic numbers (Ferrum audit). */
+$z-preview-overlay: 1000;
