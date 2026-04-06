@@ -29,6 +29,8 @@ curl https://pub.bma.ai/apt/setup | sudo sh
 sudo apt-get install tabularium-server tabularium-cli
 ```
 
+Configuration file: `/etc/tabularium/config.toml`
+
 ## Quick Start
 
 ```bash
