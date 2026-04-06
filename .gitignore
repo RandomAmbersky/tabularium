@@ -9,3 +9,4 @@ config.toml
 *.sqlite-wal
 *.sqlite-shm
 __pycache__
+exported
