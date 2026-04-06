@@ -226,7 +226,7 @@ export const PreviewPane = forwardRef<HTMLDivElement, PreviewPaneProps>(
                     onToggleFullscreen();
                   }}
                 >
-                  {fullscreen ? "Close" : "Full"}
+                  {fullscreen ? "Dock" : "Full"}
                 </button>
               ) : null}
               {showRawToggle ? (

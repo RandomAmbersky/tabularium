@@ -649,7 +649,7 @@ def test_c4_preview_fullscreen_overlay_scroll_and_restore(
     _wait(selenium_driver).until(
         EC.text_to_be_present_in_element(
             (By.CSS_SELECTOR, "[data-testid='preview-full-toggle']"),
-            "Close",
+            "Dock",
         ),
     )
 
@@ -690,7 +690,7 @@ def test_c4_preview_fullscreen_overlay_scroll_and_restore(
     )
     btn2 = selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='preview-full-toggle']")
     assert btn2.is_displayed()
-    assert btn2.text == "Close"
+    assert btn2.text == "Dock"
     _wait(selenium_driver, 15).until(lambda d: _overlay_ok(d))
     selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='preview-chat']").click()
     _wait(selenium_driver).until(
@@ -701,7 +701,7 @@ def test_c4_preview_fullscreen_overlay_scroll_and_restore(
     )
     btn3 = selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='preview-full-toggle']")
     assert btn3.is_displayed()
-    assert btn3.text == "Close"
+    assert btn3.text == "Dock"
     _wait(selenium_driver, 15).until(lambda d: _overlay_ok(d))
 
     selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='preview-full-toggle']").click()
