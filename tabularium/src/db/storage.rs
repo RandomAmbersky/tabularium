@@ -22,8 +22,16 @@ pub trait Storage: Send + Sync {
     /// Parent directory canonical path for a file (for search index prefix field).
     async fn parent_dir_path_for_file(&self, file_id: EntryId) -> Result<String>;
 
-    /// Create a single directory at `path` (parent must exist).
-    async fn create_directory(&self, path: &str, description: Option<&str>) -> Result<EntryId>;
+    /// Create a directory at `path`. With `parents == false`, the parent directory must already exist.
+    /// With `parents == true`, missing ancestors are created (best-effort); if the leaf already exists as a
+    /// directory, returns its id (POSIX `mkdir -p` silent success). File segments on the path are rejected
+    /// after a full preflight walk (before any insert).
+    async fn create_directory(
+        &self,
+        path: &str,
+        description: Option<&str>,
+        parents: bool,
+    ) -> Result<EntryId>;
 
     /// Delete directory if empty; fails with [`crate::Error::NotEmpty`] if it has children.
     async fn delete_directory(&self, path: &str) -> Result<()>;

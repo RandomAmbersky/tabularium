@@ -24,7 +24,7 @@ Path rules:
 | Method | Params | Result |
 |--------|--------|--------|
 | `list_directory` | `{ path? }` — omit, empty, or `/` for root | `[{ id, kind, name, description?, created_at, modified_at, accessed_at, size_bytes?, recursive_file_count }]` |
-| `create_directory` | `{ path, description? }` | `id` (number) |
+| `create_directory` | `{ path, description?, parents? }` — omit `parents` or `false`: parent directory must exist (strict). `parents: true`: create missing ancestors (POSIX `mkdir -p`); **best-effort / non-atomic** (a failure after some inserts may leave a partial tree); **idempotent** if the leaf directory already exists (success, same `id`; description is not updated). Any path segment that exists as a **file** is rejected after a full preflight (before inserts). | `id` (number) |
 | `delete_directory` | `{ path, recursive? }` | `null` (`recursive` true = delete files under tree then directory) |
 | `rename_directory` | `{ path, new_path }` | `null` |
 | `move_directory` | `{ path, new_parent, new_name }` | `null` |

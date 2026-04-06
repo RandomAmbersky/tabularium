@@ -51,6 +51,80 @@ async fn rest_deep_mkdir_and_list_chain() {
 }
 
 #[tokio::test]
+async fn rest_mkdir_parents_creates_chain() {
+    let s = spawn_test_server().await;
+    let base = &s.base_url;
+    let c = reqwest::Client::new();
+    let r = c
+        .post(format!("{base}/api/doc"))
+        .json(&json!({
+            "path": "/mp/a/b/c",
+            "description": null,
+            "parents": true,
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(r.status(), reqwest::StatusCode::CREATED);
+    let r = c
+        .get(format!("{base}/api/doc/mp/a/b/c"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(r.status(), reqwest::StatusCode::OK);
+}
+
+#[tokio::test]
+async fn rest_mkdir_strict_parent_missing_is_404() {
+    let s = spawn_test_server().await;
+    let base = &s.base_url;
+    let c = reqwest::Client::new();
+    let r = c
+        .post(format!("{base}/api/doc"))
+        .json(&json!({
+            "path": "/missing_parent/leaf",
+            "description": null,
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(r.status(), reqwest::StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn rpc_mkdir_parents_true_one_call() {
+    let s = spawn_test_server().await;
+    let base = &s.base_url;
+    let c = reqwest::Client::new();
+    let r = c
+        .post(format!("{base}/rpc"))
+        .json(&json!({
+            "jsonrpc": "2.0",
+            "method": "create_directory",
+            "params": { "path": "/rpcmp/x/y", "parents": true },
+            "id": 1_i64,
+        }))
+        .send()
+        .await
+        .unwrap();
+    let v: Value = r.json().await.unwrap();
+    assert!(v.get("error").is_none(), "{v:?}");
+    let r2 = c
+        .post(format!("{base}/rpc"))
+        .json(&json!({
+            "jsonrpc": "2.0",
+            "method": "create_directory",
+            "params": { "path": "/rpcmp/x/y", "parents": true },
+            "id": 2_i64,
+        }))
+        .send()
+        .await
+        .unwrap();
+    let v2: Value = r2.json().await.unwrap();
+    assert_eq!(v["result"], v2["result"]);
+}
+
+#[tokio::test]
 async fn rest_root_file_crud() {
     let s = spawn_test_server().await;
     let base = &s.base_url;

@@ -62,6 +62,9 @@ struct CreateDirectoryBody {
     #[serde(default)]
     name: Option<String>,
     description: Option<String>,
+    /// When true, create missing parent directories (POSIX `mkdir -p`); best-effort / non-atomic.
+    #[serde(default)]
+    parents: bool,
 }
 
 fn resolve_create_directory_body(body: &CreateDirectoryBody) -> tabularium::Result<String> {
@@ -250,7 +253,7 @@ async fn rest_mkdir(
     canonical_path_segments(&path).map_err(ApiError)?;
     let id = st
         .db
-        .create_directory(&path, body.description.as_deref())
+        .create_directory(&path, body.description.as_deref(), body.parents)
         .await?;
     let loc = format!("/api/doc{}", path);
     let mut headers = HeaderMap::new();
@@ -665,9 +668,10 @@ pub(crate) async fn dispatch_app_rpc(
             let description = m
                 .get("description")
                 .and_then(|v| v.as_str().map(ToString::to_string));
+            let parents = m.get("parents").and_then(Value::as_bool).unwrap_or(false);
             let id = st
                 .db
-                .create_directory(&path, description.as_deref())
+                .create_directory(&path, description.as_deref(), parents)
                 .await?;
             Ok(json!(id.raw()))
         }

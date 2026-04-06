@@ -1,6 +1,6 @@
 import requests
 
-from tests.helpers import _base, _rpc, mkdir, put_doc
+from tests.helpers import _base, _rpc, _slug, mkdir, put_doc
 
 
 def test_text_ops_via_rpc():
@@ -29,6 +29,31 @@ def test_rpc_append_creates_missing_document():
     r = requests.get(f"{base}/api/doc/{cat}/py_new_append_doc", timeout=10)
     r.raise_for_status()
     assert r.json()["content"] == "segmentum"
+
+
+def test_rpc_create_directory_parents_false_requires_parent():
+    _base()
+    s = _slug()
+    o = _rpc("create_directory", {"path": f"/gap_{s}/child"})
+    assert "error" in o
+
+
+def test_rpc_create_directory_parents_true_and_idempotent():
+    _base()
+    s = _slug()
+    root = f"p_mk_{s}"
+    p = f"/{root}/x/y"
+    r1 = _rpc("create_directory", {"path": p, "parents": True})
+    assert "result" in r1, r1
+    r2 = _rpc("create_directory", {"path": p, "parents": True})
+    assert r1["result"] == r2["result"]
+
+
+def test_rpc_create_directory_omitted_parents_defaults_strict():
+    base = _base()
+    s = _slug()
+    o = _rpc("create_directory", {"path": f"/hole_{s}/deep/nested"})
+    assert "error" in o
 
 
 def test_rpc_delete_directory_recursive():

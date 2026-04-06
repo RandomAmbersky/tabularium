@@ -15,25 +15,62 @@ fn temp_db() -> (tempfile::TempDir, String, std::path::PathBuf) {
 async fn deep_mkdir_chain_resolve_and_missing_parent() {
     let (_d, uri, idx) = temp_db();
     let db = SqliteDatabase::init(&uri, &idx, 0).await.unwrap();
-    let id_a = db.create_directory("/a", None).await.unwrap();
-    let id_ab = db.create_directory("/a/b", None).await.unwrap();
-    let id_abc = db.create_directory("/a/b/c", None).await.unwrap();
+    let id_a = db.create_directory("/a", None, false).await.unwrap();
+    let id_ab = db.create_directory("/a/b", None, false).await.unwrap();
+    let id_abc = db.create_directory("/a/b/c", None, false).await.unwrap();
     assert_ne!(id_a, id_ab);
     assert_ne!(id_ab, id_abc);
     assert_eq!(db.resolve_directory_path("/a/b/c").await.unwrap(), id_abc);
-    let err = db.create_directory("/x/y/z", None).await.unwrap_err();
+    let err = db
+        .create_directory("/x/y/z", None, false)
+        .await
+        .unwrap_err();
     assert!(matches!(err, Error::NotFound(_)));
+}
+
+#[tokio::test]
+async fn mkdir_parents_creates_missing_ancestors() {
+    let (_d, uri, idx) = temp_db();
+    let db = SqliteDatabase::init(&uri, &idx, 0).await.unwrap();
+    let id = db.create_directory("/u/v/w", None, true).await.unwrap();
+    assert_eq!(db.resolve_directory_path("/u/v/w").await.unwrap(), id);
+}
+
+#[tokio::test]
+async fn mkdir_parents_idempotent_existing_leaf() {
+    let (_d, uri, idx) = temp_db();
+    let db = SqliteDatabase::init(&uri, &idx, 0).await.unwrap();
+    let a = db.create_directory("/same/deep", None, true).await.unwrap();
+    let b = db.create_directory("/same/deep", None, true).await.unwrap();
+    assert_eq!(a, b);
+}
+
+#[tokio::test]
+async fn mkdir_parents_rejects_file_segment() {
+    let (_d, uri, idx) = temp_db();
+    let db = SqliteDatabase::init(&uri, &idx, 0).await.unwrap();
+    db.create_document_at_path("/notdir", "x").await.unwrap();
+    let err = db
+        .create_directory("/notdir/inside", None, true)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, Error::InvalidInput(_)));
 }
 
 #[tokio::test]
 async fn five_level_canonical_paths_and_root() {
     let (_d, uri, idx) = temp_db();
     let db = SqliteDatabase::init(&uri, &idx, 0).await.unwrap();
-    db.create_directory("/l1", None).await.unwrap();
-    db.create_directory("/l1/l2", None).await.unwrap();
-    db.create_directory("/l1/l2/l3", None).await.unwrap();
-    db.create_directory("/l1/l2/l3/l4", None).await.unwrap();
-    let id_e = db.create_directory("/l1/l2/l3/l4/l5", None).await.unwrap();
+    db.create_directory("/l1", None, false).await.unwrap();
+    db.create_directory("/l1/l2", None, false).await.unwrap();
+    db.create_directory("/l1/l2/l3", None, false).await.unwrap();
+    db.create_directory("/l1/l2/l3/l4", None, false)
+        .await
+        .unwrap();
+    let id_e = db
+        .create_directory("/l1/l2/l3/l4/l5", None, false)
+        .await
+        .unwrap();
     assert_eq!(
         db.test_storage_canonical_path(id_e).await.unwrap(),
         "/l1/l2/l3/l4/l5"
@@ -97,10 +134,10 @@ async fn ensure_directory_path_idempotent_and_deep_file_crud() {
 async fn list_directory_mixed_kinds_at_depths() {
     let (_d, uri, idx) = temp_db();
     let db = SqliteDatabase::init(&uri, &idx, 0).await.unwrap();
-    db.create_directory("/a", None).await.unwrap();
-    db.create_directory("/a/b", None).await.unwrap();
-    db.create_directory("/a/b/c", None).await.unwrap();
-    db.create_directory("/a/d", None).await.unwrap();
+    db.create_directory("/a", None, false).await.unwrap();
+    db.create_directory("/a/b", None, false).await.unwrap();
+    db.create_directory("/a/b/c", None, false).await.unwrap();
+    db.create_directory("/a/d", None, false).await.unwrap();
     db.create_file_in_directory("/a", "doc.txt", "x")
         .await
         .unwrap();
@@ -125,8 +162,8 @@ async fn list_directory_mixed_kinds_at_depths() {
 async fn move_file_between_directories_updates_search() {
     let (_d, uri, idx) = temp_db();
     let db = SqliteDatabase::init(&uri, &idx, 0).await.unwrap();
-    db.create_directory("/src_dir", None).await.unwrap();
-    db.create_directory("/dst_dir", None).await.unwrap();
+    db.create_directory("/src_dir", None, false).await.unwrap();
+    db.create_directory("/dst_dir", None, false).await.unwrap();
     let fid = db
         .create_file_in_directory("/src_dir", "doc", "moveneedle_unique")
         .await
@@ -157,10 +194,12 @@ async fn move_file_between_directories_updates_search() {
 async fn move_directory_valid_and_rejects_cycle() {
     let (_d, uri, idx) = temp_db();
     let db = SqliteDatabase::init(&uri, &idx, 0).await.unwrap();
-    db.create_directory("/tree", None).await.unwrap();
-    db.create_directory("/tree/a", None).await.unwrap();
-    db.create_directory("/tree/a/b", None).await.unwrap();
-    db.create_directory("/tree/other", None).await.unwrap();
+    db.create_directory("/tree", None, false).await.unwrap();
+    db.create_directory("/tree/a", None, false).await.unwrap();
+    db.create_directory("/tree/a/b", None, false).await.unwrap();
+    db.create_directory("/tree/other", None, false)
+        .await
+        .unwrap();
     db.move_directory("/tree/a/b", "/tree/other", "nested")
         .await
         .unwrap();
@@ -168,9 +207,9 @@ async fn move_directory_valid_and_rejects_cycle() {
         .await
         .unwrap();
 
-    db.create_directory("/cyc", None).await.unwrap();
-    db.create_directory("/cyc/a", None).await.unwrap();
-    db.create_directory("/cyc/a/b", None).await.unwrap();
+    db.create_directory("/cyc", None, false).await.unwrap();
+    db.create_directory("/cyc/a", None, false).await.unwrap();
+    db.create_directory("/cyc/a/b", None, false).await.unwrap();
     let err = db
         .move_directory("/cyc/a", "/cyc/a/b", "bad")
         .await
@@ -182,9 +221,9 @@ async fn move_directory_valid_and_rejects_cycle() {
 async fn recursive_delete_clears_storage_and_search() {
     let (_d, uri, idx) = temp_db();
     let db = SqliteDatabase::init(&uri, &idx, 0).await.unwrap();
-    db.create_directory("/deep", None).await.unwrap();
-    db.create_directory("/deep/x", None).await.unwrap();
-    db.create_directory("/deep/x/y", None).await.unwrap();
+    db.create_directory("/deep", None, false).await.unwrap();
+    db.create_directory("/deep/x", None, false).await.unwrap();
+    db.create_directory("/deep/x/y", None, false).await.unwrap();
     db.create_file_in_directory("/deep/x/y", "f1", "deepf1needle")
         .await
         .unwrap();
@@ -212,8 +251,8 @@ async fn recursive_delete_clears_storage_and_search() {
 async fn rename_directory_and_file_at_depth() {
     let (_d, uri, idx) = temp_db();
     let db = SqliteDatabase::init(&uri, &idx, 0).await.unwrap();
-    db.create_directory("/d", None).await.unwrap();
-    db.create_directory("/d/old", None).await.unwrap();
+    db.create_directory("/d", None, false).await.unwrap();
+    db.create_directory("/d/old", None, false).await.unwrap();
     let fid = db
         .create_file_in_directory("/d/old", "f", "txt")
         .await
@@ -231,9 +270,9 @@ async fn rename_directory_and_file_at_depth() {
 async fn search_subtree_scoped_and_segment_boundary() {
     let (_d, uri, idx) = temp_db();
     let db = SqliteDatabase::init(&uri, &idx, 0).await.unwrap();
-    db.create_directory("/ns", None).await.unwrap();
-    db.create_directory("/ns/a", None).await.unwrap();
-    db.create_directory("/ns/b", None).await.unwrap();
+    db.create_directory("/ns", None, false).await.unwrap();
+    db.create_directory("/ns/a", None, false).await.unwrap();
+    db.create_directory("/ns/b", None, false).await.unwrap();
     db.create_file_in_directory("/ns/a", "doc1", "unique_deep_a_alpha")
         .await
         .unwrap();
@@ -259,10 +298,16 @@ async fn search_subtree_scoped_and_segment_boundary() {
     );
     let both = db.search_hits("unique_deep", None, 10).await.unwrap();
     assert_eq!(both.len(), 2);
-    db.create_directory("/segtrap", None).await.unwrap();
-    db.create_directory("/segtrap/a", None).await.unwrap();
-    db.create_directory("/segtrap/a/b", None).await.unwrap();
-    db.create_directory("/segtrap/a/bc", None).await.unwrap();
+    db.create_directory("/segtrap", None, false).await.unwrap();
+    db.create_directory("/segtrap/a", None, false)
+        .await
+        .unwrap();
+    db.create_directory("/segtrap/a/b", None, false)
+        .await
+        .unwrap();
+    db.create_directory("/segtrap/a/bc", None, false)
+        .await
+        .unwrap();
     db.create_file_in_directory("/segtrap/a/b", "x", "trapxyz123seg")
         .await
         .unwrap();
