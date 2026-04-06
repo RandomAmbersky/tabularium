@@ -1,10 +1,8 @@
-
 <h2>
   Tabularium - markdown document assembly
   <a href="https://crates.io/crates/tabularium"><img alt="crates.io page" src="https://img.shields.io/crates/v/tabularium.svg"></img></a>
   <a href="https://docs.rs/tabularium"><img alt="docs.rs page" src="https://docs.rs/tabularium/badge.svg"></img></a>
 </h2>
-
 
 Tabularium is an AI-oriented markdown document store with full-text
 search, a real directory tree, and several ways to work with the same data: web
@@ -50,6 +48,11 @@ just tb search tabularium
 - [JSON-RPC methods](docs/json-rpc-methods.md)
 - [REST API](docs/rest-api.md)
 - [curl examples](docs/curl-examples.md)
+- [AI agents](docs/AI-Agents.md)
+
+## AI Agents
+
+When an AI agent uses Tabularium as shared project memory, point it at the MCP endpoint and keep it on the MCP tool surface. The practical setup and meeting workflow live in [docs/AI-Agents.md](docs/AI-Agents.md).
 
 ## Development
 

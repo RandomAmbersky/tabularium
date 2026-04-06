@@ -20,7 +20,7 @@ For machine spirits and maintainers: layout, commands, and doctrine.
 - **Index / DB drift**: if the process dies between a SQLite write and a Tantivy commit, the index can disagree with the DB. Stage 1 accepts this; a future `just`/admin rebuild hook is the intended remedy.
 - **`accessed_at` / `touch`**: every successful logical read via `Database::get_document` calls `Storage::touch` after content is resolved (cache hit or miss). If `touch` fails, the error is propagated to the caller (no `Ok` with stale silence).
 - **Read cache**: `moka` async cache holds document bodies only; `cache_size == 0` keeps the cache object but never stores entries. Mutations invalidate the affected document id after a successful storage write.
-- **`reindex`**: `Database::reindex(None)` clears the Tantivy index and rebuilds from every `documents` row. `Database::reindex(Some(category_id))` re-upserts only rows in that directory (internal `category_id`); other indexed documents are left as-is. Public API uses directory/path vocabulary only.
+- **`reindex`**: `Database::reindex(None)` clears the Tantivy index and rebuilds from every `documents` row. `Database::reindex(Some(...))` re-upserts only rows in the targeted directory subtree via the internal directory row identifier; other indexed documents are left as-is. Public API uses directory/path vocabulary only.
 - **Tracing**: the library uses `tracing` spans on `SqliteDatabase::init`, `Database` façade methods, `SqliteStorage` (`Storage`), and `SearchIndex` I/O. Install a subscriber in binaries/tests (e.g. `tracing_subscriber`) and set `RUST_LOG=tabularium=debug` (or `trace`) to see them; the library crate does not initialize global logging.
 
 ## Build & test

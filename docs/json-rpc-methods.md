@@ -51,5 +51,3 @@ Path rules:
 | `stat` | `{ path }` | `{ id, path, size_bytes, line_count, …timestamps }` |
 | `test` | `{}` (no keys) | `{ product_name, product_version, uptime }` — diagnostics; `product_name` is `"tabularium"`, `product_version` is the **server** crate compile-time version, `uptime` is process uptime in nanoseconds (`u64`, saturates at max) |
 | `wait` | `{ path }` | `null` when document body changes after the call begins; `-32602` with `"wait timed out"` at server long-poll ceiling |
-
-Storage still uses an internal `categories` table / `category_id` for directory rows; that is **not** exposed on the wire.
