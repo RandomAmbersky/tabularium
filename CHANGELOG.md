@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.3 - 2026-04-06
+
+Polish release.
+
+- Adds workspace-wide version management with `just bump` and `just set-version`, plus CI and packaging updates around the embedded web UI build.
+- Improves the Web UI with dock and fullscreen preview polish, stronger search highlighting, and correct handling of internal markdown references, including reusable copied links.
+- Adds valid GFM table rendering support in the Web UI and CLI chat, with regression coverage for tables and reference navigation.
+- Refreshes docs with an AI agent setup guide, removes stale public terminology, and tightens name validation to reject `.` and `..`.
+
 ## 0.1.2 - 2026-04-06
 
 First public release.
