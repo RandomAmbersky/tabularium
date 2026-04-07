@@ -7,6 +7,8 @@ class Tabularium < Formula
   license "Apache-2.0"
 
   def install
+    odie "tabularium Homebrew formula currently supports only Apple Silicon (arm64) macOS" if Hardware::CPU.intel?
+
     bin.install ".brew-dist/tabularium-server"
     bin.install ".brew-dist/tb"
 

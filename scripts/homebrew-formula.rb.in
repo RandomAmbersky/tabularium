@@ -18,6 +18,8 @@ class Tabularium < Formula
   end
 
   def install
+    odie "tabularium Homebrew formula currently supports only Apple Silicon (arm64) macOS" if Hardware::CPU.intel?
+
     bin.install "tb"
     resource("tabularium-server-bin").stage do
       bin.install "tabularium-server"
