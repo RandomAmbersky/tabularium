@@ -59,6 +59,7 @@ just tb search tabularium
 - [JSON-RPC methods](docs/json-rpc-methods.md)
 - [REST API](docs/rest-api.md)
 - [curl examples](docs/curl-examples.md)
+- [Authentication and authorization](docs/authentication.md)
 - [Chat mode](docs/chat-mode.md)
 - [AI agents](docs/AI-Agents.md)
 
