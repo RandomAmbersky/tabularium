@@ -26,6 +26,8 @@ jobs:
             target: aarch64-apple-darwin
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -101,6 +103,36 @@ jobs:
             --target "${{ matrix.target }}" \
             --sums "dist/SHA256SUMS-${{ matrix.target }}.txt" \
             --out dist/tabularium.rb
+
+      - name: Commit generated formula to feat/brew_installation
+        if: matrix.target == 'aarch64-apple-darwin' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          TARGET_BRANCH: feat/brew_installation
+        run: |
+          set -euo pipefail
+
+          cp dist/tabularium.rb Formula/tabularium.rb
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin "$TARGET_BRANCH" || true
+          if git show-ref --verify --quiet "refs/remotes/origin/$TARGET_BRANCH"; then
+            git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          else
+            git checkout -B "$TARGET_BRANCH"
+          fi
+
+          cp dist/tabularium.rb Formula/tabularium.rb
+          git add Formula/tabularium.rb
+
+          if git diff --staged --quiet; then
+            echo "No formula changes to commit"
+            exit 0
+          fi
+
+          git commit -m "chore: update Homebrew formula for ${GITHUB_REF_NAME}"
+          git push origin "HEAD:$TARGET_BRANCH"
 
       - name: Upload release assets
         if: contains(matrix.target, 'apple-darwin') && startsWith(github.ref, 'refs/tags/v')
