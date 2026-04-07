@@ -161,9 +161,12 @@ pub(crate) enum Command {
     /// Create a directory (absolute or relative to root).
     #[command(name = "mkdir")]
     Mkdir {
-        path: String,
+        /// Create parent directories as needed (POSIX `mkdir -p`).
+        #[arg(short = 'p', long)]
+        parents: bool,
         #[arg(long)]
         description: Option<String>,
+        path: String,
     },
     /// Move or rename a directory or file (`mv SRC DST`).
     Mv { src: String, dst: String },
@@ -285,6 +288,22 @@ mod cli_parse_tests {
         };
         assert_eq!(path, "a/b");
         assert_eq!(time.as_deref(), Some("1712345678"));
+    }
+
+    #[test]
+    fn mkdir_parses_parents_flag() {
+        let c = Cli::try_parse_from(["tb", "-u", "http://x", "mkdir", "-p", "/a/b"]).unwrap();
+        let Command::Mkdir {
+            parents,
+            path,
+            description,
+        } = c.command
+        else {
+            panic!("expected mkdir");
+        };
+        assert!(parents);
+        assert_eq!(path, "/a/b");
+        assert!(description.is_none());
     }
 
     #[test]

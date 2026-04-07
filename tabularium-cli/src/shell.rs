@@ -63,7 +63,7 @@ fn flags_for(sub: &str) -> &'static [&'static str] {
         "import" => &["-n", "--name"],
         "l" | "ll" | "ls" => &["-t", "--time", "-r", "--reverse"],
         "lt" => &["-r", "--reverse"],
-        "mkdir" => &["--description"],
+        "mkdir" => &["--description", "-p", "--parents"],
         "rm" => &["-r", "--recursive"],
         "tail" => &["-n", "-f", "--follow", "--raw"],
         _ => &[],
@@ -943,8 +943,16 @@ impl Completer for TbHelper {
             }
         }
 
-        if sub == "mkdir" && words.len() == 2 && !ends_with_space {
+        if sub == "mkdir" && words.len() == 2 && !ends_with_space && !words[1].starts_with('-') {
             let p = self.complete_path(&mut state, words[1]);
+            return Ok((start, p));
+        }
+        if sub == "mkdir"
+            && words.len() == 3
+            && !ends_with_space
+            && (words[1] == "-p" || words[1] == "--parents")
+        {
+            let p = self.complete_path(&mut state, words[2]);
             return Ok((start, p));
         }
 
@@ -1176,9 +1184,14 @@ pub(crate) fn apply_shell_cwd(cmd: Command, shell_cwd: Option<&str>) -> Result<C
             directory: resolve_shell_tree_scope(&directory, shell_cwd)?,
             destination,
         },
-        Command::Mkdir { path, description } => Command::Mkdir {
+        Command::Mkdir {
+            path,
+            description,
+            parents,
+        } => Command::Mkdir {
             path: resolve_shell_doc_path(&path, shell_cwd)?,
             description,
+            parents,
         },
         Command::Touch { path, time } => Command::Touch {
             path: resolve_shell_doc_path(&path, shell_cwd)?,
@@ -2076,6 +2089,7 @@ mod shell_cwd_tests {
 
         let mk = unwrap_ac(
             Command::Mkdir {
+                parents: false,
                 path: "/newcat".into(),
                 description: None,
             },

@@ -5,7 +5,7 @@ Base path: `/api`. Document tree: **`/api/doc`**. `GET /api/doc` lists **root-le
 ## Document tree (`/api/doc`)
 
 - `GET /api/doc` — JSON array: `id`, `kind`, `name`, `description`, timestamps, `size_bytes`, `recursive_file_count` (same shape as JSON-RPC `list_directory` at `/`).
-- `POST /api/doc` — body `{ "name": "...", "description": null }` or `{ "path": "/abs/path", ... }`. `201` + `Location: /api/doc/<path>`.
+- `POST /api/doc` — body `{ "name": "...", "description": null }` or `{ "path": "/abs/path", "description": null, "parents": false }`. Optional `parents: true` creates missing parent directories (POSIX `mkdir -p`; best-effort / non-atomic; idempotent if the leaf directory already exists; see JSON-RPC `create_directory`). `201` + `Location: /api/doc/<path>`.
 
 Path segments under `/api/doc/…` accept **name** or **numeric id** per segment.
 

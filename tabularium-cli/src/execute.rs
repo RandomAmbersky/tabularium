@@ -1000,11 +1000,15 @@ pub(crate) async fn execute(
                 normalize_user_path(path.trim()).map_err(|e| -> BoxErr { e.to_string().into() })?;
             cmd_edit(client, &path).await?;
         }
-        Command::Mkdir { path, description } => {
+        Command::Mkdir {
+            path,
+            description,
+            parents,
+        } => {
             let path =
                 normalize_user_path(path.trim()).map_err(|e| -> BoxErr { e.to_string().into() })?;
             client
-                .create_directory(&path, description.as_deref())
+                .create_directory(&path, description.as_deref(), parents)
                 .await?;
         }
         Command::Touch { path, time } => {
@@ -1534,22 +1538,7 @@ fn validate_fs_name(name: &str) -> Result<(), String> {
 
 async fn ensure_directory_path_recursive(client: &Client, path: &str) -> Result<(), BoxErr> {
     let p = normalize_user_path(path.trim()).map_err(|e| -> BoxErr { e.to_string().into() })?;
-    if client.list_directory(&p).await.is_ok() {
-        return Ok(());
-    }
-    let segs = tabularium::resource_path::canonical_path_segments(&p)
-        .map_err(|e| -> BoxErr { e.to_string().into() })?;
-    let mut acc = String::from("/");
-    for (i, seg) in segs.iter().enumerate() {
-        if i > 0 {
-            acc.push('/');
-        }
-        acc.push_str(seg);
-        if client.list_directory(&acc).await.is_ok() {
-            continue;
-        }
-        client.create_directory(&acc, None).await?;
-    }
+    client.create_directory(&p, None, true).await?;
     Ok(())
 }
 

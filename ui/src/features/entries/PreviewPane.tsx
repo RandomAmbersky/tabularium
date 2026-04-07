@@ -459,7 +459,7 @@ export const PreviewPane = forwardRef<HTMLDivElement, PreviewPaneProps>(
             )
           ) : null}
           {showPreviewBody && !rawMode ? (
-            <div className={styles.markdown}>
+            <div className={`${styles.markdown} markdown`}>
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={rehypePlugins}

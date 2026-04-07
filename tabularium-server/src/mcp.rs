@@ -46,7 +46,7 @@ append_document — path, content (raw append; not for chat/meeting blocks — u
 say_document — path, from_id (sender nickname), content. **Preferred for meetings, conversations, and task scrolls** — server appends a markdown block with the sender in the heading. **Target file must already exist** (use put_document or append_document to create).
 list_directory — path optional (omit or empty for root `/`). Rows include modified_at; use this to walk the tree; there is no separate MCP find tool.
 search — query, path optional (subtree filter). Indexed full-text over document body, file name, and description.
-create_directory — path, description optional.
+create_directory — path, description optional, parents optional (`true` = POSIX `mkdir -p`; default `false`).
 describe — path; optional description string (omit to read; empty string clears).
 document_exists — path (wire RPC name `exists`; tests file only).
 stat — path.
@@ -166,6 +166,8 @@ struct CreateDirectoryArg {
     path: String,
     #[serde(default)]
     description: Option<String>,
+    #[serde(default)]
+    parents: bool,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -335,7 +337,9 @@ impl TabulariumMcp {
         self.call_rpc_json("search", Value::Object(m)).await
     }
 
-    #[tool(description = "Create a directory (JSON-RPC create_directory).")]
+    #[tool(
+        description = "Create a directory (JSON-RPC create_directory). Optional parents=true creates missing ancestors (mkdir -p)."
+    )]
     async fn create_directory(
         &self,
         Parameters(p): Parameters<CreateDirectoryArg>,
@@ -344,6 +348,9 @@ impl TabulariumMcp {
         m.insert("path".into(), json!(p.path));
         if let Some(d) = p.description {
             m.insert("description".into(), json!(d));
+        }
+        if p.parents {
+            m.insert("parents".into(), json!(true));
         }
         self.call_rpc_json("create_directory", Value::Object(m))
             .await

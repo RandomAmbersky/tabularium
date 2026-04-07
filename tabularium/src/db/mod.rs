@@ -190,15 +190,22 @@ impl<S: Storage> Database<S> {
         self.storage.touch(file_id).await
     }
 
-    #[instrument(skip(self, description), fields(path = %path.as_ref()), err(Debug))]
+    #[instrument(
+        skip(self, description),
+        fields(path = %path.as_ref(), parents = parents),
+        err(Debug)
+    )]
     pub async fn create_directory(
         &self,
         path: impl AsRef<str> + Send,
         description: Option<&str>,
+        parents: bool,
     ) -> Result<EntryId> {
         let path = path.as_ref();
         canonical_path_segments(path)?;
-        self.storage.create_directory(path, description).await
+        self.storage
+            .create_directory(path, description, parents)
+            .await
     }
 
     #[instrument(skip(self), fields(path = %path.as_ref()), err(Debug))]
@@ -554,7 +561,7 @@ mod tests {
         let idx_path = dir.path().join("t.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 16).await.unwrap();
-        db.create_directory("/notes", None).await.unwrap();
+        db.create_directory("/notes", None, false).await.unwrap();
         let id = db
             .create_file_in_directory("/notes", "readme", "alpha beta gamma")
             .await
@@ -581,7 +588,7 @@ mod tests {
         let idx_path = dir.path().join("sd.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 16).await.unwrap();
-        db.create_directory("/d", None).await.unwrap();
+        db.create_directory("/d", None, false).await.unwrap();
         let id = db
             .create_file_in_directory("/d", "ledger_alpha.md", "zzz boring")
             .await
@@ -611,7 +618,7 @@ mod tests {
         let idx_path = dir.path().join("e.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 0).await.unwrap();
-        db.create_directory("/full", None).await.unwrap();
+        db.create_directory("/full", None, false).await.unwrap();
         db.create_file_in_directory("/full", "x", "y")
             .await
             .unwrap();
@@ -626,7 +633,7 @@ mod tests {
         let idx_path = dir.path().join("d.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 0).await.unwrap();
-        db.create_directory("/c", None).await.unwrap();
+        db.create_directory("/c", None, false).await.unwrap();
         db.create_file_in_directory("/c", "same", "a")
             .await
             .unwrap();
@@ -645,7 +652,7 @@ mod tests {
         let idx_path = dir.path().join("r.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 0).await.unwrap();
-        db.create_directory("/c", None).await.unwrap();
+        db.create_directory("/c", None, false).await.unwrap();
         let id = db
             .create_file_in_directory("/c", "a", "inquisitorial keyword")
             .await
@@ -662,7 +669,7 @@ mod tests {
         let idx_path = dir.path().join("cnt.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 0).await.unwrap();
-        db.create_directory("/alpha", None).await.unwrap();
+        db.create_directory("/alpha", None, false).await.unwrap();
         db.create_file_in_directory("/alpha", "d1", "hello")
             .await
             .unwrap();
@@ -687,8 +694,8 @@ mod tests {
         let idx_path = dir.path().join("s.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 0).await.unwrap();
-        db.create_directory("/one", None).await.unwrap();
-        db.create_directory("/two", None).await.unwrap();
+        db.create_directory("/one", None, false).await.unwrap();
+        db.create_directory("/two", None, false).await.unwrap();
         db.create_file_in_directory("/one", "a", "alpha uniqueone")
             .await
             .unwrap();
@@ -711,7 +718,7 @@ mod tests {
         let idx_path = dir.path().join("nl.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 0).await.unwrap();
-        db.create_directory("/c", None).await.unwrap();
+        db.create_directory("/c", None, false).await.unwrap();
         let id = db.create_file_in_directory("/c", "d", "a\n").await.unwrap();
         db.append_document(id, "b").await.unwrap();
         let body = db.get_document(id).await.unwrap();
@@ -725,7 +732,7 @@ mod tests {
         let idx_path = dir.path().join("empty_append.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 0).await.unwrap();
-        db.create_directory("/c", None).await.unwrap();
+        db.create_directory("/c", None, false).await.unwrap();
         let id = db.create_file_in_directory("/c", "d", "a").await.unwrap();
 
         db.append_document(id, "").await.unwrap();
@@ -741,7 +748,7 @@ mod tests {
         let idx_path = dir.path().join("ap.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 0).await.unwrap();
-        db.create_directory("/c", None).await.unwrap();
+        db.create_directory("/c", None, false).await.unwrap();
         db.append_document_by_path("/c/newdoc", "hello")
             .await
             .unwrap();
@@ -757,7 +764,7 @@ mod tests {
         let idx_path = dir.path().join("say.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 0).await.unwrap();
-        db.create_directory("/c", None).await.unwrap();
+        db.create_directory("/c", None, false).await.unwrap();
         let id = db.create_file_in_directory("/c", "d", "x\n").await.unwrap();
         db.say_document_by_path("/c/d", "ada", "hello\n")
             .await
@@ -773,7 +780,7 @@ mod tests {
         let idx_path = dir.path().join("say_gap.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 0).await.unwrap();
-        db.create_directory("/c", None).await.unwrap();
+        db.create_directory("/c", None, false).await.unwrap();
         let id = db
             .create_file_in_directory("/c", "d", "x\n\n")
             .await
@@ -792,7 +799,7 @@ mod tests {
         let idx_path = dir.path().join("say_miss.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 0).await.unwrap();
-        db.create_directory("/c", None).await.unwrap();
+        db.create_directory("/c", None, false).await.unwrap();
         let err = db
             .say_document_by_path("/c/nope", "ada", "x")
             .await
@@ -811,7 +818,7 @@ mod tests {
         let idx_path = dir.path().join("touch.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 0).await.unwrap();
-        db.create_directory("/t", None).await.unwrap();
+        db.create_directory("/t", None, false).await.unwrap();
         db.touch_document_by_path("/t/new", None).await.unwrap();
         let m0 = db.document_ref_by_path("/t/new").await.unwrap();
         assert_eq!(db.get_document(m0.id()).await.unwrap(), "");
@@ -829,7 +836,7 @@ mod tests {
         let idx_path = dir.path().join("smtime.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 0).await.unwrap();
-        db.create_directory("/m", None).await.unwrap();
+        db.create_directory("/m", None, false).await.unwrap();
         db.create_file_in_directory("/m", "f", "x").await.unwrap();
         let ts = Timestamp::from_secs(1_700_000_000);
         db.touch_document_by_path("/m/f", Some(ts)).await.unwrap();
@@ -848,7 +855,7 @@ mod tests {
         let idx_path = dir.path().join("touch_ts.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 0).await.unwrap();
-        db.create_directory("/tc", None).await.unwrap();
+        db.create_directory("/tc", None, false).await.unwrap();
         let ts = Timestamp::from_secs(1_710_000_000);
         db.touch_document_by_path("/tc/pinned", Some(ts))
             .await
@@ -865,7 +872,7 @@ mod tests {
         let idx_path = dir.path().join("rec.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = SqliteDatabase::init(&uri, &idx_path, 0).await.unwrap();
-        db.create_directory("/big", None).await.unwrap();
+        db.create_directory("/big", None, false).await.unwrap();
         let id = db
             .create_file_in_directory("/big", "x", "needle_recursive")
             .await
@@ -882,7 +889,7 @@ mod tests {
         let idx_path = dir.path().join("w.idx");
         let uri = format!("sqlite://{}", db_path.display());
         let db = Arc::new(SqliteDatabase::init(&uri, &idx_path, 0).await.unwrap());
-        db.create_directory("/w", None).await.unwrap();
+        db.create_directory("/w", None, false).await.unwrap();
         let id = db.create_file_in_directory("/w", "d", "v0").await.unwrap();
         let db_wait = db.clone();
         let j = tokio::spawn(async move {

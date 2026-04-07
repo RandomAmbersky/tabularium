@@ -260,6 +260,12 @@ fn row_to_file_meta(row: &SqliteRow, canonical_path: String) -> Result<DocumentM
     ))
 }
 
+#[derive(Clone, Copy)]
+enum MkdirParentsScan {
+    Dir(EntryId),
+    Missing,
+}
+
 #[async_trait]
 impl Storage for SqliteStorage {
     #[instrument(skip(self), fields(file_id = file_id.raw()), err(Debug))]
@@ -299,27 +305,114 @@ impl Storage for SqliteStorage {
         canonical_path_for_id(&self.pool, EntryId::from_raw(parent)).await
     }
 
-    #[instrument(skip(self, description), fields(path = %path), err(Debug))]
-    async fn create_directory(&self, path: &str, description: Option<&str>) -> Result<EntryId> {
-        let (parent_path, name) = parent_and_final_name(path)?;
-        let parent_id = self
-            .resolve_path(&parent_path, Some(EntryKind::Dir))
-            .await?;
-        let now = Timestamp::now();
-        let id: i64 = sqlx::query_scalar(
-            r"INSERT INTO entries (parent_id, kind, name, description, content, size, created_at, modified_at, accessed_at)
-            VALUES (?, 0, ?, ?, NULL, NULL, ?, ?, ?) RETURNING id",
-        )
-        .bind(parent_id.raw())
-        .bind(&name)
-        .bind(description)
-        .bind(now)
-        .bind(now)
-        .bind(now)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(Self::map_sqlite_constraint)?;
-        Ok(EntryId::from_raw(id))
+    #[instrument(
+        skip(self, description),
+        fields(path = %path, parents = parents),
+        err(Debug)
+    )]
+    async fn create_directory(
+        &self,
+        path: &str,
+        description: Option<&str>,
+        parents: bool,
+    ) -> Result<EntryId> {
+        if !parents {
+            let (parent_path, name) = parent_and_final_name(path)?;
+            let parent_id = self
+                .resolve_path(&parent_path, Some(EntryKind::Dir))
+                .await?;
+            let now = Timestamp::now();
+            let id: i64 = sqlx::query_scalar(
+                r"INSERT INTO entries (parent_id, kind, name, description, content, size, created_at, modified_at, accessed_at)
+                VALUES (?, 0, ?, ?, NULL, NULL, ?, ?, ?) RETURNING id",
+            )
+            .bind(parent_id.raw())
+            .bind(&name)
+            .bind(description)
+            .bind(now)
+            .bind(now)
+            .bind(now)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(Self::map_sqlite_constraint)?;
+            return Ok(EntryId::from_raw(id));
+        }
+
+        let segs = canonical_path_segments(path)?;
+        if segs.is_empty() {
+            return Err(Error::InvalidInput(
+                "path must name an entry under root (not / alone)".into(),
+            ));
+        }
+
+        let mut cur_id = EntryId::from_raw(ROOT_ID);
+        let mut states: Vec<MkdirParentsScan> = Vec::with_capacity(segs.len());
+
+        for (i, seg) in segs.iter().enumerate() {
+            let row: Option<(i64, i64)> =
+                sqlx::query_as("SELECT id, kind FROM entries WHERE parent_id = ? AND name = ?")
+                    .bind(cur_id.raw())
+                    .bind(seg)
+                    .fetch_optional(&self.pool)
+                    .await?;
+
+            match row {
+                None => {
+                    states.push(MkdirParentsScan::Missing);
+                    for _ in (i + 1)..segs.len() {
+                        states.push(MkdirParentsScan::Missing);
+                    }
+                    break;
+                }
+                Some((id, kind)) => {
+                    if kind == EntryKind::File as i64 {
+                        return Err(Error::InvalidInput(format!(
+                            "create_directory: path segment names an existing file ({seg})"
+                        )));
+                    }
+                    cur_id = EntryId::from_raw(id);
+                    states.push(MkdirParentsScan::Dir(cur_id));
+                }
+            }
+        }
+
+        if states.len() == segs.len()
+            && let MkdirParentsScan::Dir(leaf_id) = states[segs.len() - 1]
+        {
+            return Ok(leaf_id);
+        }
+
+        let first_missing = states
+            .iter()
+            .position(|s| matches!(s, MkdirParentsScan::Missing))
+            .expect("parents mkdir: expected a missing segment");
+        let mut cur_id = EntryId::from_raw(ROOT_ID);
+        for ent in states.iter().take(first_missing) {
+            if let MkdirParentsScan::Dir(id) = *ent {
+                cur_id = id;
+            }
+        }
+
+        for i in first_missing..segs.len() {
+            let is_leaf = i + 1 == segs.len();
+            let desc = if is_leaf { description } else { None };
+            let now = Timestamp::now();
+            let id: i64 = sqlx::query_scalar(
+                r"INSERT INTO entries (parent_id, kind, name, description, content, size, created_at, modified_at, accessed_at)
+                VALUES (?, 0, ?, ?, NULL, NULL, ?, ?, ?) RETURNING id",
+            )
+            .bind(cur_id.raw())
+            .bind(&segs[i])
+            .bind(desc)
+            .bind(now)
+            .bind(now)
+            .bind(now)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(Self::map_sqlite_constraint)?;
+            cur_id = EntryId::from_raw(id);
+        }
+        Ok(cur_id)
     }
 
     #[instrument(skip(self), fields(path = %path), err(Debug))]
@@ -793,30 +886,37 @@ impl Storage for SqliteStorage {
         let segs = canonical_path_segments(dir_path)?;
         let mut cur = EntryId::from_raw(ROOT_ID);
         for seg in segs {
-            let next: Option<i64> = sqlx::query_scalar(
-                "SELECT id FROM entries WHERE parent_id = ? AND name = ? AND kind = 0",
-            )
-            .bind(cur.raw())
-            .bind(&seg)
-            .fetch_optional(&self.pool)
-            .await?;
-            cur = if let Some(id) = next {
-                EntryId::from_raw(id)
-            } else {
-                let now = Timestamp::now();
-                let id: i64 = sqlx::query_scalar(
-                    r"INSERT INTO entries (parent_id, kind, name, description, content, size, created_at, modified_at, accessed_at)
-                    VALUES (?, 0, ?, NULL, NULL, NULL, ?, ?, ?) RETURNING id",
-                )
-                .bind(cur.raw())
-                .bind(&seg)
-                .bind(now)
-                .bind(now)
-                .bind(now)
-                .fetch_one(&self.pool)
-                .await
-                .map_err(Self::map_sqlite_constraint)?;
-                EntryId::from_raw(id)
+            let row: Option<(i64, i64)> =
+                sqlx::query_as("SELECT id, kind FROM entries WHERE parent_id = ? AND name = ?")
+                    .bind(cur.raw())
+                    .bind(&seg)
+                    .fetch_optional(&self.pool)
+                    .await?;
+            cur = match row {
+                None => {
+                    let now = Timestamp::now();
+                    let id: i64 = sqlx::query_scalar(
+                        r"INSERT INTO entries (parent_id, kind, name, description, content, size, created_at, modified_at, accessed_at)
+                        VALUES (?, 0, ?, NULL, NULL, NULL, ?, ?, ?) RETURNING id",
+                    )
+                    .bind(cur.raw())
+                    .bind(&seg)
+                    .bind(now)
+                    .bind(now)
+                    .bind(now)
+                    .fetch_one(&self.pool)
+                    .await
+                    .map_err(Self::map_sqlite_constraint)?;
+                    EntryId::from_raw(id)
+                }
+                Some((id, kind)) => {
+                    if kind == EntryKind::File as i64 {
+                        return Err(Error::InvalidInput(format!(
+                            "ensure_directory_path: path segment names an existing file ({seg})"
+                        )));
+                    }
+                    EntryId::from_raw(id)
+                }
             };
         }
         Ok(cur)

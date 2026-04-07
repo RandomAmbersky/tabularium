@@ -166,14 +166,15 @@ impl Client {
         serde_json::from_value(r).map_err(|e| Error::InvalidInput(e.to_string()))
     }
 
-    /// `create_directory` RPC; `path` is absolute (e.g. `/notes`).
+    /// `create_directory` RPC; `path` is absolute (e.g. `/notes`). `parents` matches POSIX `mkdir -p`.
     pub async fn create_directory(
         &self,
         path: impl AsRef<Path>,
         description: Option<&str>,
+        parents: bool,
     ) -> Result<EntryId> {
         let path = normalize_path_for_rpc(path)?;
-        let params = json!({ "path": path, "description": description });
+        let params = json!({ "path": path, "description": description, "parents": parents });
         let r = self.call("create_directory", params).await?;
         serde_json::from_value(r).map_err(|e| Error::InvalidInput(e.to_string()))
     }

@@ -48,7 +48,7 @@ async fn tail_follow_interrupted_by_sigint() {
     let server = spawn_test_server().await;
     let client = Client::init(&server.base_url, Duration::from_secs(5)).unwrap();
     client
-        .create_directory("/tail_follow_cat", None)
+        .create_directory("/tail_follow_cat", None, false)
         .await
         .unwrap();
     client
