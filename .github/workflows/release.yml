@@ -52,6 +52,15 @@ jobs:
           tar -C "target/${{ matrix.target }}/release" -czf "dist/tb-${VERSION}-${{ matrix.target }}.tar.gz" tb
           tar -C "target/${{ matrix.target }}/release" -czf "dist/tabularium-server-${VERSION}-${{ matrix.target }}.tar.gz" tabularium-server
 
+      - name: Prepare Linux archives
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          VERSION="${GITHUB_REF_NAME//\//-}"
+          tar -C "target/${{ matrix.target }}/release" -czf "dist/tb-${VERSION}-${{ matrix.target }}.tar.gz" tb
+          tar -C "target/${{ matrix.target }}/release" -czf "dist/tabularium-server-${VERSION}-${{ matrix.target }}.tar.gz" tabularium-server
+
       - name: Validate macOS archives and binaries
         if: contains(matrix.target, 'apple-darwin')
         run: |
@@ -83,6 +92,22 @@ jobs:
           [[ "$SERVER_OTOOL_OUT" != *"glibc"* ]]
           [[ "$SERVER_OTOOL_OUT" != *".so"* ]]
 
+      - name: Validate Linux archives and binaries
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME//\//-}"
+          TB_ARCHIVE="dist/tb-${VERSION}-${{ matrix.target }}.tar.gz"
+          SERVER_ARCHIVE="dist/tabularium-server-${VERSION}-${{ matrix.target }}.tar.gz"
+
+          test "$(tar -tzf "$TB_ARCHIVE")" = "tb"
+          test "$(tar -tzf "$SERVER_ARCHIVE")" = "tabularium-server"
+
+          TB_FILE_OUT="$(file "target/${{ matrix.target }}/release/tb")"
+          SERVER_FILE_OUT="$(file "target/${{ matrix.target }}/release/tabularium-server")"
+          [[ "$TB_FILE_OUT" == *"ELF"* && "$TB_FILE_OUT" == *"x86-64"* ]]
+          [[ "$SERVER_FILE_OUT" == *"ELF"* && "$SERVER_FILE_OUT" == *"x86-64"* ]]
+
       - name: Generate macOS checksums
         if: contains(matrix.target, 'apple-darwin')
         run: |
@@ -93,37 +118,82 @@ jobs:
             "dist/tabularium-server-${VERSION}-${{ matrix.target }}.tar.gz" \
             > "dist/SHA256SUMS-${{ matrix.target }}.txt"
 
+      - name: Generate Linux checksums
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME//\//-}"
+          shasum -a 256 \
+            "dist/tb-${VERSION}-${{ matrix.target }}.tar.gz" \
+            "dist/tabularium-server-${VERSION}-${{ matrix.target }}.tar.gz" \
+            > "dist/SHA256SUMS-${{ matrix.target }}.txt"
+
+      - name: Upload release build artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-${{ matrix.target }}
+          path: |
+            dist/tb-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+            dist/tabularium-server-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+            dist/SHA256SUMS-${{ matrix.target }}.txt
+          if-no-files-found: error
+
+      - name: Upload release assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/tb-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+            dist/tabularium-server-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+            dist/SHA256SUMS-${{ matrix.target }}.txt
+          fail_on_unmatched_files: true
+          append_body: true
+
+  update-homebrew-formula:
+    name: update homebrew formula
+    runs-on: ubuntu-latest
+    needs: build-release
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download macOS release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets-aarch64-apple-darwin
+          path: dist-macos
+
+      - name: Download Linux release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets-x86_64-unknown-linux-gnu
+          path: dist-linux
+
       - name: Generate Homebrew formula
-        if: contains(matrix.target, 'apple-darwin') && startsWith(github.ref, 'refs/tags/v')
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           bash scripts/generate-homebrew-formula.sh \
             --tag "${GITHUB_REF_NAME}" \
-            --target "${{ matrix.target }}" \
-            --sums "dist/SHA256SUMS-${{ matrix.target }}.txt" \
-            --out dist/tabularium.rb
+            --mac-target "aarch64-apple-darwin" \
+            --mac-sums "dist-macos/SHA256SUMS-aarch64-apple-darwin.txt" \
+            --linux-target "x86_64-unknown-linux-gnu" \
+            --linux-sums "dist-linux/SHA256SUMS-x86_64-unknown-linux-gnu.txt" \
+            --out Formula/tabularium.rb
 
       - name: Commit generated formula to main
-        if: matrix.target == 'aarch64-apple-darwin' && startsWith(github.ref, 'refs/tags/v')
         env:
           TARGET_BRANCH: main
         run: |
           set -euo pipefail
-
-          cp dist/tabularium.rb Formula/tabularium.rb
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git fetch origin "$TARGET_BRANCH" || true
-          if git show-ref --verify --quiet "refs/remotes/origin/$TARGET_BRANCH"; then
-            git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
-          else
-            git checkout -B "$TARGET_BRANCH"
-          fi
-
-          cp dist/tabularium.rb Formula/tabularium.rb
+          git fetch origin "$TARGET_BRANCH"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
           git add Formula/tabularium.rb
 
           if git diff --staged --quiet; then
@@ -133,15 +203,3 @@ jobs:
 
           git commit -m "chore: update Homebrew formula for ${GITHUB_REF_NAME}"
           git push origin "HEAD:$TARGET_BRANCH"
-
-      - name: Upload release assets
-        if: contains(matrix.target, 'apple-darwin') && startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/tb-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
-            dist/tabularium-server-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
-            dist/SHA256SUMS-${{ matrix.target }}.txt
-            dist/tabularium.rb
-          fail_on_unmatched_files: true
-          append_body: true

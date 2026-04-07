@@ -4,12 +4,24 @@ class Tabularium < Formula
   license "Apache-2.0"
   version "@VER_NUM@"
 
-  url "@TB_URL@"
-  sha256 "@TB_SHA@"
+  on_macos do
+    url "@MAC_TB_URL@"
+    sha256 "@MAC_TB_SHA@"
 
-  resource "tabularium-server-bin" do
-    url "@SRV_URL@"
-    sha256 "@SRV_SHA@"
+    resource "tabularium-server-bin" do
+      url "@MAC_SRV_URL@"
+      sha256 "@MAC_SRV_SHA@"
+    end
+  end
+
+  on_linux do
+    url "@LINUX_TB_URL@"
+    sha256 "@LINUX_TB_SHA@"
+
+    resource "tabularium-server-bin" do
+      url "@LINUX_SRV_URL@"
+      sha256 "@LINUX_SRV_SHA@"
+    end
   end
 
   resource "default-config" do
@@ -18,8 +30,6 @@ class Tabularium < Formula
   end
 
   def install
-    odie "tabularium Homebrew formula currently supports only Apple Silicon (arm64) macOS" if Hardware::CPU.intel?
-
     bin.install "tb"
     resource("tabularium-server-bin").stage do
       bin.install "tabularium-server"

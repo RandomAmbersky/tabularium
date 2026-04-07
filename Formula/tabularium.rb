@@ -4,12 +4,14 @@ class Tabularium < Formula
   license "Apache-2.0"
   version "0.1.3"
 
-  url "https://github.com/eva-ics/tabularium/releases/download/v0.1.3/tb-v0.1.3-aarch64-apple-darwin.tar.gz"
-  sha256 "9ec00250ac873ef7ae5119728bedbc7d3333f0f38b5ed4f7f01cc1d00c59e975"
+  on_macos do
+    url "https://github.com/eva-ics/tabularium/releases/download/v0.1.3/tb-v0.1.3-aarch64-apple-darwin.tar.gz"
+    sha256 "9ec00250ac873ef7ae5119728bedbc7d3333f0f38b5ed4f7f01cc1d00c59e975"
 
-  resource "tabularium-server-bin" do
-    url "https://github.com/eva-ics/tabularium/releases/download/v0.1.3/tabularium-server-v0.1.3-aarch64-apple-darwin.tar.gz"
-    sha256 "1e1a3d0f70fe666151545e4b51805155787e6598736e233d49007beeefcc464c"
+    resource "tabularium-server-bin" do
+      url "https://github.com/eva-ics/tabularium/releases/download/v0.1.3/tabularium-server-v0.1.3-aarch64-apple-darwin.tar.gz"
+      sha256 "1e1a3d0f70fe666151545e4b51805155787e6598736e233d49007beeefcc464c"
+    end
   end
 
   resource "default-config" do
@@ -18,8 +20,6 @@ class Tabularium < Formula
   end
 
   def install
-    odie "tabularium Homebrew formula currently supports only Apple Silicon (arm64) macOS" if Hardware::CPU.intel?
-
     bin.install "tb"
     resource("tabularium-server-bin").stage do
       bin.install "tabularium-server"

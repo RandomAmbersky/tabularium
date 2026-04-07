@@ -5,14 +5,16 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TEMPLATE="$ROOT/scripts/homebrew-formula.rb.in"
 
 TAG=""
-TARGET=""
-SUMS=""
+MAC_TARGET=""
+MAC_SUMS=""
+LINUX_TARGET=""
+LINUX_SUMS=""
 CONFIG_FILE="$ROOT/config.toml.example"
 OUT=""
 GITHUB_REPO="${GITHUB_REPOSITORY:-eva-ics/tabularium}"
 
 usage() {
-  echo "Usage: $0 --tag vX.Y.Z --target TRIPLE --sums PATH [--config PATH] --out PATH"
+  echo "Usage: $0 --tag vX.Y.Z --mac-target TRIPLE --mac-sums PATH --linux-target TRIPLE --linux-sums PATH [--config PATH] --out PATH"
   echo "  Environment: GITHUB_REPOSITORY=owner/repo (default: eva-ics/tabularium)"
   exit 1
 }
@@ -23,12 +25,20 @@ while [[ $# -gt 0 ]]; do
       TAG="${2:-}"
       shift 2
       ;;
-    --target)
-      TARGET="${2:-}"
+    --mac-target)
+      MAC_TARGET="${2:-}"
       shift 2
       ;;
-    --sums)
-      SUMS="${2:-}"
+    --mac-sums)
+      MAC_SUMS="${2:-}"
+      shift 2
+      ;;
+    --linux-target)
+      LINUX_TARGET="${2:-}"
+      shift 2
+      ;;
+    --linux-sums)
+      LINUX_SUMS="${2:-}"
       shift 2
       ;;
     --config)
@@ -49,7 +59,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$TAG" || -z "$TARGET" || -z "$SUMS" || -z "$OUT" ]]; then
+if [[ -z "$TAG" || -z "$MAC_TARGET" || -z "$MAC_SUMS" || -z "$LINUX_TARGET" || -z "$LINUX_SUMS" || -z "$OUT" ]]; then
   usage
 fi
 
@@ -58,8 +68,13 @@ if [[ ! -f "$TEMPLATE" ]]; then
   exit 1
 fi
 
-if [[ ! -f "$SUMS" ]]; then
-  echo "Missing SHA256SUMS file: $SUMS"
+if [[ ! -f "$MAC_SUMS" ]]; then
+  echo "Missing macOS SHA256SUMS file: $MAC_SUMS"
+  exit 1
+fi
+
+if [[ ! -f "$LINUX_SUMS" ]]; then
+  echo "Missing Linux SHA256SUMS file: $LINUX_SUMS"
   exit 1
 fi
 
@@ -75,27 +90,35 @@ fi
 
 VER_NUM="${TAG#v}"
 
-TB_SHA=$(grep -E 'tb-.*\.tar\.gz' "$SUMS" | head -1 | awk '{print $1}')
-SRV_SHA=$(grep -E 'tabularium-server-.*\.tar\.gz' "$SUMS" | head -1 | awk '{print $1}')
+MAC_TB_SHA=$(grep -E "tb-.*${MAC_TARGET}\.tar\.gz" "$MAC_SUMS" | awk '{print $1}')
+MAC_SRV_SHA=$(grep -E "tabularium-server-.*${MAC_TARGET}\.tar\.gz" "$MAC_SUMS" | awk '{print $1}')
+LINUX_TB_SHA=$(grep -E "tb-.*${LINUX_TARGET}\.tar\.gz" "$LINUX_SUMS" | awk '{print $1}')
+LINUX_SRV_SHA=$(grep -E "tabularium-server-.*${LINUX_TARGET}\.tar\.gz" "$LINUX_SUMS" | awk '{print $1}')
 CONFIG_SHA=$(shasum -a 256 "$CONFIG_FILE" | awk '{print $1}')
 
-if [[ -z "$TB_SHA" || -z "$SRV_SHA" ]]; then
-  echo "Could not parse tb / tabularium-server sha256 from $SUMS"
+if [[ -z "$MAC_TB_SHA" || -z "$MAC_SRV_SHA" || -z "$LINUX_TB_SHA" || -z "$LINUX_SRV_SHA" ]]; then
+  echo "Could not parse tb / tabularium-server sha256 from checksum files"
   exit 1
 fi
 
-TB_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/tb-${TAG}-${TARGET}.tar.gz"
-SRV_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/tabularium-server-${TAG}-${TARGET}.tar.gz"
+MAC_TB_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/tb-${TAG}-${MAC_TARGET}.tar.gz"
+MAC_SRV_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/tabularium-server-${TAG}-${MAC_TARGET}.tar.gz"
+LINUX_TB_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/tb-${TAG}-${LINUX_TARGET}.tar.gz"
+LINUX_SRV_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/tabularium-server-${TAG}-${LINUX_TARGET}.tar.gz"
 CFG_URL="https://raw.githubusercontent.com/${GITHUB_REPO}/${TAG}/config.toml.example"
 
 substitute() {
   sed \
     -e "s|@GITHUB_REPO@|${GITHUB_REPO}|g" \
     -e "s|@VER_NUM@|${VER_NUM}|g" \
-    -e "s|@TB_URL@|${TB_URL}|g" \
-    -e "s|@TB_SHA@|${TB_SHA}|g" \
-    -e "s|@SRV_URL@|${SRV_URL}|g" \
-    -e "s|@SRV_SHA@|${SRV_SHA}|g" \
+    -e "s|@MAC_TB_URL@|${MAC_TB_URL}|g" \
+    -e "s|@MAC_TB_SHA@|${MAC_TB_SHA}|g" \
+    -e "s|@MAC_SRV_URL@|${MAC_SRV_URL}|g" \
+    -e "s|@MAC_SRV_SHA@|${MAC_SRV_SHA}|g" \
+    -e "s|@LINUX_TB_URL@|${LINUX_TB_URL}|g" \
+    -e "s|@LINUX_TB_SHA@|${LINUX_TB_SHA}|g" \
+    -e "s|@LINUX_SRV_URL@|${LINUX_SRV_URL}|g" \
+    -e "s|@LINUX_SRV_SHA@|${LINUX_SRV_SHA}|g" \
     -e "s|@CFG_URL@|${CFG_URL}|g" \
     -e "s|@CONFIG_SHA@|${CONFIG_SHA}|g"
 }
