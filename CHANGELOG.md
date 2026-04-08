@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4 - 2026-04-08
+
+Web UI and packaging release.
+
+- Improves the embedded Web UI with screenshots, styling and workspace flow fixes, plus better reference handling coverage.
+- Adds Homebrew installation support, server `--config`, `mkdir -p`, and related path and release-target packaging fixes.
+- Docker images
+
 ## 0.1.3 - 2026-04-06
 
 Polish release.
