@@ -60,6 +60,11 @@ tag:
     git tag -a v{{VERSION}} -m v{{VERSION}}
     git push origin --tags
 
+release: deb pub-deb pub-docker tag publush-cargo-crate
+
+publush-cargo-crate:
+    cargo publish -p tabularium
+
 # Patch-bump [workspace.package] version, then cargo check --workspace (refresh lock/metadata).
 bump:
     python3 scripts/workspace_version.py bump
