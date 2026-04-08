@@ -52,3 +52,86 @@ jobs:
           -A clippy::uninlined_format_args \
           -A clippy::no_effect_underscore_binding \
           -A clippy::large_futures
+
+  macos-artifacts:
+    name: macos artifacts ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            target: aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build UI
+        run: cd ui && npm ci && npm run build
+
+      - name: Build binaries
+        run: cargo build --release --target "${{ matrix.target }}" -p tabularium-cli -p tabularium-server
+
+      - name: Prepare macOS archives
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          VERSION="${GITHUB_REF_NAME//\//-}"
+          tar -C "target/${{ matrix.target }}/release" -czf "dist/tb-${VERSION}-${{ matrix.target }}.tar.gz" tb
+          tar -C "target/${{ matrix.target }}/release" -czf "dist/tabularium-server-${VERSION}-${{ matrix.target }}.tar.gz" tabularium-server
+
+      - name: Validate macOS archives and binaries
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME//\//-}"
+          TB_ARCHIVE="dist/tb-${VERSION}-${{ matrix.target }}.tar.gz"
+          SERVER_ARCHIVE="dist/tabularium-server-${VERSION}-${{ matrix.target }}.tar.gz"
+
+          test "$(tar -tzf "$TB_ARCHIVE")" = "tb"
+          test "$(tar -tzf "$SERVER_ARCHIVE")" = "tabularium-server"
+
+          TB_FILE_OUT="$(file "target/${{ matrix.target }}/release/tb")"
+          SERVER_FILE_OUT="$(file "target/${{ matrix.target }}/release/tabularium-server")"
+
+          case "${{ matrix.target }}" in
+            aarch64-apple-darwin)
+              [[ "$TB_FILE_OUT" == *"Mach-O"* && "$TB_FILE_OUT" == *"arm64"* ]]
+              [[ "$SERVER_FILE_OUT" == *"Mach-O"* && "$SERVER_FILE_OUT" == *"arm64"* ]]
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
+
+          TB_OTOOL_OUT="$(otool -L "target/${{ matrix.target }}/release/tb")"
+          SERVER_OTOOL_OUT="$(otool -L "target/${{ matrix.target }}/release/tabularium-server")"
+          [[ "$TB_OTOOL_OUT" != *"glibc"* ]]
+          [[ "$TB_OTOOL_OUT" != *".so"* ]]
+          [[ "$SERVER_OTOOL_OUT" != *"glibc"* ]]
+          [[ "$SERVER_OTOOL_OUT" != *".so"* ]]
+
+      - name: Generate macOS checksums
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME//\//-}"
+          shasum -a 256 \
+            "dist/tb-${VERSION}-${{ matrix.target }}.tar.gz" \
+            "dist/tabularium-server-${VERSION}-${{ matrix.target }}.tar.gz" \
+            > "dist/SHA256SUMS-${{ matrix.target }}.txt"
+
+      - name: Upload CI artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-assets-${{ matrix.target }}-${{ github.run_id }}
+          path: |
+            dist/tb-*.tar.gz
+            dist/tabularium-server-*.tar.gz
+            dist/SHA256SUMS-${{ matrix.target }}.txt
+          if-no-files-found: error

@@ -54,6 +54,26 @@ just tb search tabularium
 
 `just run` uses `config.toml` when present and falls back to `config.toml.example` for a fresh clone.
 
+## Install (Homebrew)
+
+```bash
+brew install eva-ics/tabularium/tabularium
+```
+
+Apple Silicon only (`arm64` / `aarch64-apple-darwin`). Intel macOS (`x86_64-apple-darwin`) artifacts are not published yet.
+
+This installs:
+
+- `tabularium-server` as a Homebrew service target
+- `tb` as a regular CLI binary in `bin` (not a service)
+
+Start and manage the server with:
+
+```bash
+brew services start tabularium
+brew services stop tabularium
+```
+
 ## Docs
 
 - [JSON-RPC methods](docs/json-rpc-methods.md)
