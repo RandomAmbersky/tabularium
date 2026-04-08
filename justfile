@@ -19,6 +19,43 @@ tb *args:
 fmt:
     cargo fmt --all
 
+# Multi-arch publish needs a buildx builder; prefer docker-container driver (avoids flaky default).
+prepare-docker:
+    bash -ec '\
+      set -euo pipefail; \
+      if docker buildx inspect tabularium-multi >/dev/null 2>&1; then \
+        docker buildx use tabularium-multi; \
+      else \
+        docker buildx create --name tabularium-multi --driver docker-container --use; \
+      fi; \
+      docker buildx inspect --bootstrap \
+    '
+
+pub-docker: build-ui prepare-docker
+    bash -ec ' \
+      IMAGE="${IMAGE:-bmauto/tabularium}"; \
+      VERSION="{{VERSION}}"; \
+      TAG="${TAG:-}"; \
+      PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"; \
+      \
+      rm -rf docker/_build; \
+      mkdir -p docker/_build/amd64 docker/_build/arm64; \
+      \
+      cross build --target x86_64-unknown-linux-gnu --release --features mcp -p tabularium-server -p tabularium-cli; \
+      cp target/x86_64-unknown-linux-gnu/release/tabularium-server docker/_build/amd64/tabularium-server; \
+      cp target/x86_64-unknown-linux-gnu/release/tb docker/_build/amd64/tb; \
+      \
+      cross build --target aarch64-unknown-linux-gnu --release --features mcp -p tabularium-server -p tabularium-cli; \
+      cp target/aarch64-unknown-linux-gnu/release/tabularium-server docker/_build/arm64/tabularium-server; \
+      cp target/aarch64-unknown-linux-gnu/release/tb docker/_build/arm64/tb; \
+      \
+      if [[ -z "${TAG}" ]]; then \
+        docker buildx build --platform "${PLATFORMS}" -f Dockerfile.publish -t "${IMAGE}:${VERSION}" -t "${IMAGE}:latest" --push .; \
+      else \
+        docker buildx build --platform "${PLATFORMS}" -f Dockerfile.publish -t "${IMAGE}:${TAG}" --push .; \
+      fi; \
+    '
+
 tag:
     git tag -a v{{VERSION}} -m v{{VERSION}}
     git push origin --tags

@@ -46,6 +46,7 @@ pub struct ServerSection {
 }
 
 pub fn load(path: &Path) -> Result<Config> {
-    let raw = std::fs::read_to_string(path).map_err(|e| Error::Io(e.to_string()))?;
-    toml::from_str(&raw).map_err(|e| Error::InvalidInput(e.to_string()))
+    let raw = std::fs::read_to_string(path)
+        .map_err(|e| Error::Io(format!("config {}: {e}", path.display())))?;
+    toml::from_str(&raw).map_err(|e| Error::InvalidInput(format!("config {}: {e}", path.display())))
 }

@@ -1,0 +1,12 @@
+target
+.git
+.github
+.pytest_cache
+.venv
+data
+exported
+ui/node_modules
+ui/dist
+tabularium-ios-client
+.DS_Store
+

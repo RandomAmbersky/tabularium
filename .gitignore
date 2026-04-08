@@ -1,4 +1,6 @@
 target
+# Ephemeral staging for `just pub-docker` (per-arch binaries for Dockerfile.publish).
+docker/_build/
 make-deb/dist/
 .DS_Store
 # Local server config (copy from config.toml.example).

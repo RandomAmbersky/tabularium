@@ -1,0 +1,13 @@
+services:
+  tabularium:
+    build: .
+    image: tabularium:local
+    restart: unless-stopped
+    ports:
+      - "3050:3050"
+      - "3031:3031"
+    volumes:
+      - ./docker/config.toml:/etc/tabularium/config.toml:ro
+      - ./docker/data:/var/tabularium/data
+      - ./docker/spill:/var/tabularium/spill
+

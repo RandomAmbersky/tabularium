@@ -61,6 +61,7 @@ just tb search tabularium
 - [curl examples](docs/curl-examples.md)
 - [Authentication and authorization](docs/authentication.md)
 - [Chat mode](docs/chat-mode.md)
+- [Docker](docs/docker.md)
 - [AI agents](docs/AI-Agents.md)
 
 ## AI Agents

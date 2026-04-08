@@ -6,5 +6,6 @@ mod embedded_ui;
 pub mod mcp;
 mod multipart_body;
 mod rpc_preview;
+mod test_payload;
 pub mod web;
 pub mod ws_doc;

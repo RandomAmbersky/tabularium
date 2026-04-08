@@ -1,0 +1,40 @@
+FROM debian:bookworm-slim AS runtime
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    libssl3 \
+    libsqlite3-0 \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -r -u 10001 -g nogroup -m -d /nonexistent -s /usr/sbin/nologin tabularium
+
+RUN mkdir -p /etc/tabularium /var/tabularium/data /var/tabularium/spill \
+  && chown -R tabularium:nogroup /var/tabularium
+
+# `just pub-docker` stages per-arch binaries into `docker/_build/{amd64,arm64}/`.
+COPY docker/_build/ /_build/
+
+ARG TARGETARCH
+RUN case "$TARGETARCH" in \
+      amd64) dir=amd64 ;; \
+      arm64) dir=arm64 ;; \
+      *) echo "unsupported TARGETARCH=$TARGETARCH" >&2; exit 1 ;; \
+    esac \
+    && install -m 0755 "/_build/${dir}/tabularium-server" /usr/sbin/tabularium-server \
+    && install -m 0755 "/_build/${dir}/tb" /usr/bin/tb
+
+COPY docker/config.toml /etc/tabularium/config.toml
+
+EXPOSE 3050
+EXPOSE 3031
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=6 \
+  CMD curl -fsS http://127.0.0.1:3050/api/test >/dev/null || exit 1
+
+USER tabularium
+
+ENTRYPOINT ["/usr/sbin/tabularium-server"]
+CMD ["--config", "/etc/tabularium/config.toml"]
+

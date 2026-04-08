@@ -105,7 +105,11 @@ fn init_tracing() {
 #[command(name = "tabularium-server", version, about)]
 struct Cli {
     /// Path to the TOML configuration file
-    #[arg(short = 'c', long = "config", default_value = "config.toml")]
+    #[arg(
+        short = 'c',
+        long = "config",
+        default_value = "/etc/tabularium/config.toml"
+    )]
     config: PathBuf,
 }
 
@@ -113,7 +117,18 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     init_tracing();
 
     let cli = Cli::parse();
-    let cfg = config::load(&cli.config)?;
+    let config_path = std::env::var_os("TABULARIUM_CONFIG")
+        .and_then(|s| {
+            let t = s.to_string_lossy();
+            let t = t.trim();
+            if t.is_empty() {
+                None
+            } else {
+                Some(PathBuf::from(t))
+            }
+        })
+        .unwrap_or(cli.config);
+    let cfg = config::load(&config_path)?;
 
     if let Some(parent) = cfg.server.database_path.parent() {
         std::fs::create_dir_all(parent)?;

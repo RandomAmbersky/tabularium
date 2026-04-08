@@ -13,6 +13,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use tracing::info;
 
+use crate::test_payload::test_payload;
 use crate::ws_doc::ws_upgrade;
 use tabularium::resource_path::{canonical_path_segments, normalize_path_for_rpc};
 use tabularium::validate_entity_name;
@@ -29,6 +30,7 @@ pub struct AppState {
 
 pub fn router(state: AppState) -> Router {
     Router::new()
+        .route("/api/test", get(api_test))
         .route("/api/doc", get(list_root).post(rest_mkdir))
         .route(
             "/api/doc/{*rest}",
@@ -44,6 +46,10 @@ pub fn router(state: AppState) -> Router {
         .layer(DefaultBodyLimit::max(32 * 1024 * 1024))
         .with_state(state)
         .fallback(axum::routing::get(crate::embedded_ui::serve))
+}
+
+async fn api_test(State(st): State<AppState>) -> ApiResult<Json<Value>> {
+    Ok(Json(test_payload(st.process_started_at)))
 }
 
 fn rest_to_canonical(rest: &str) -> String {
@@ -1000,13 +1006,7 @@ pub(crate) async fn dispatch_app_rpc(
                     "test: no parameters allowed".into(),
                 )));
             }
-            let nanos = st.process_started_at.elapsed().as_nanos();
-            let uptime = u64::try_from(nanos).unwrap_or(u64::MAX);
-            Ok(json!({
-                "product_name": "tabularium",
-                "product_version": env!("CARGO_PKG_VERSION"),
-                "uptime": uptime,
-            }))
+            Ok(test_payload(st.process_started_at))
         }
         "describe" => {
             let path = rpc_path(&m, "path")?;
