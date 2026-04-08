@@ -6,3 +6,6 @@ members = ["tabularium", "tabularium-server", "tabularium-cli"]
 edition = "2024"
 license = "Apache-2.0"
 version = "0.1.4"
+
+[profile.release]
+strip = true
