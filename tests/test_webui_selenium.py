@@ -1368,12 +1368,11 @@ def test_i2_create_file_opens_preview(selenium_driver, tabularium_base_url, seed
     )
     selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='entries-action-submit']").click()
     _wait(selenium_driver).until(
-        EC.text_to_be_present_in_element(
-            (By.CSS_SELECTOR, "[data-testid='preview-path']"),
-            f"/{seed_dir}/{name}",
-        ),
+        EC.visibility_of_element_located((By.CSS_SELECTOR, "[data-testid='preview-edit']")),
     )
-    _wait(selenium_driver).until(lambda d: "open=%2F" in d.current_url and name in d.current_url)
+    _wait(selenium_driver).until(
+        lambda d: f"open=%2F{seed_dir}%2F{name}" in d.current_url,
+    )
 
 
 def test_i3_rename_file(selenium_driver, tabularium_base_url, seed_dir: str):
@@ -1398,7 +1397,17 @@ def test_i4_rename_directory(selenium_driver, tabularium_base_url, seed_nested: 
     selenium_driver.get(tabularium_base_url + "/entries")
     _wait_app_ready(selenium_driver)
     _open_seed_dir_and_wait(selenium_driver, seed_nested)
-    selenium_driver.find_element(By.CSS_SELECTOR, "[data-entry-name='nested']").click()
+    body = selenium_driver.find_element(By.TAG_NAME, "body")
+    for _ in range(25):
+        body.send_keys(Keys.ARROW_DOWN)
+        selected = selenium_driver.find_elements(
+            By.CSS_SELECTOR,
+            "[data-selected='true'][data-entry-name='nested']",
+        )
+        if selected:
+            break
+    else:
+        pytest.fail("nested directory not selected for rename")
     _open_action_modal(selenium_driver, "rename")
     input_el = selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='entries-action-name-input']")
     input_el.clear()
