@@ -2,30 +2,30 @@ class Tabularium < Formula
   desc "AI-oriented markdown document store with CLI and HTTP server"
   homepage "https://github.com/eva-ics/tabularium"
   license "Apache-2.0"
-  version "0.1.4"
+  version "0.1.5"
 
   on_macos do
-    url "https://github.com/eva-ics/tabularium/releases/download/v0.1.4/tb-v0.1.4-aarch64-apple-darwin.tar.gz"
-    sha256 "480bd09363f1f7782d2589d4557beeb0f315ed6c5e3aeeadaadc7077a8476bcd"
+    url "https://github.com/eva-ics/tabularium/releases/download/v0.1.5/tb-v0.1.5-aarch64-apple-darwin.tar.gz"
+    sha256 "301498a8a53d04069b81568e656a3ea98a900cc64b813c5675fbab991f665251"
 
     resource "tabularium-server-bin" do
-      url "https://github.com/eva-ics/tabularium/releases/download/v0.1.4/tabularium-server-v0.1.4-aarch64-apple-darwin.tar.gz"
-      sha256 "ce8122a6f42e13ebd66aed0d9d73d5849e0428b687249153d5625ba4f696b862"
+      url "https://github.com/eva-ics/tabularium/releases/download/v0.1.5/tabularium-server-v0.1.5-aarch64-apple-darwin.tar.gz"
+      sha256 "20b7ee714fdb762fa58bcc0b152073e9609bd49d72d4f546fd557985d214618f"
     end
   end
 
   on_linux do
-    url "https://github.com/eva-ics/tabularium/releases/download/v0.1.4/tb-v0.1.4-x86_64-unknown-linux-gnu.tar.gz"
-    sha256 "c39f57ce07cad26bf51d6dc04e60239eb6da92823b3bddb906d52c8b6ad78a5f"
+    url "https://github.com/eva-ics/tabularium/releases/download/v0.1.5/tb-v0.1.5-x86_64-unknown-linux-gnu.tar.gz"
+    sha256 "23057dca8e356594320be215ecaf0f0d06006f11970ba829c8d036e7c765294b"
 
     resource "tabularium-server-bin" do
-      url "https://github.com/eva-ics/tabularium/releases/download/v0.1.4/tabularium-server-v0.1.4-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "d0c506f1d6e5cea4bed62c4a4d6785fe4006735c5b201542f051f335fd741747"
+      url "https://github.com/eva-ics/tabularium/releases/download/v0.1.5/tabularium-server-v0.1.5-x86_64-unknown-linux-gnu.tar.gz"
+      sha256 "3d05938d2b4882117c9e6677e9c203b56104220f0c297e000c3ae637ba9a02e9"
     end
   end
 
   resource "default-config" do
-    url "https://raw.githubusercontent.com/eva-ics/tabularium/v0.1.4/config.toml.example"
+    url "https://raw.githubusercontent.com/eva-ics/tabularium/v0.1.5/config.toml.example"
     sha256 "c581ecebdc67c0b057f1920345a7eb99458741fbb45b8e840212dbd9beac096d"
   end
 
