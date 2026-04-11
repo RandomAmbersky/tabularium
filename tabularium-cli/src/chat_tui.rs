@@ -199,17 +199,22 @@ fn max_display_scroll(rows_len: usize, vis_h: usize) -> usize {
     rows_len.saturating_sub(vis_h)
 }
 
+/// PgUp/PgDn (and bound keys): scroll by viewport minus overlap, at least five rows.
+fn page_scroll_step(vis_h: usize) -> usize {
+    vis_h.saturating_sub(5).max(5)
+}
+
 /// Live tail vs history browsing: local send pins; remote append preserves a detached viewport.
 struct ChatScrollState {
     pinned_bottom: bool,
-    scroll_off: usize,
+    scroll_off: Option<usize>,
 }
 
 impl ChatScrollState {
     fn new() -> Self {
         Self {
             pinned_bottom: true,
-            scroll_off: 0,
+            scroll_off: None,
         }
     }
 
@@ -222,30 +227,39 @@ impl ChatScrollState {
         if self.pinned_bottom {
             max_s
         } else {
-            self.scroll_off.min(max_s)
+            self.scroll_off.unwrap_or(max_s).min(max_s)
         }
     }
 
     fn clamp_when_detached(&mut self, rows_len: usize, vis_h: usize) {
         if !self.pinned_bottom {
             let max_s = max_display_scroll(rows_len, vis_h);
-            self.scroll_off = self.scroll_off.min(max_s);
+            if let Some(off) = self.scroll_off.as_mut() {
+                *off = (*off).min(max_s);
+            }
         }
     }
 
-    fn page_up(&mut self, vis_h: usize) {
+    fn page_up(&mut self, rows_len: usize, vis_h: usize) {
+        let max_s = max_display_scroll(rows_len, vis_h);
+        let base = if self.pinned_bottom {
+            max_s
+        } else {
+            self.scroll_off.unwrap_or(max_s)
+        };
         self.pinned_bottom = false;
-        self.scroll_off = self.scroll_off.saturating_sub(vis_h.max(1));
+        self.scroll_off = Some(base.saturating_sub(page_scroll_step(vis_h)));
     }
 
     fn page_down(&mut self, rows_len: usize, vis_h: usize) {
-        let vis = vis_h.max(1);
+        let step = page_scroll_step(vis_h);
         let max_s = max_display_scroll(rows_len, vis_h);
         if self.pinned_bottom {
             return;
         }
-        self.scroll_off = (self.scroll_off + vis).min(max_s);
-        if rows_len <= vis_h || self.scroll_off >= max_s {
+        let base = self.scroll_off.unwrap_or(max_s);
+        self.scroll_off = Some((base + step).min(max_s));
+        if rows_len <= vis_h || self.scroll_off.unwrap_or(max_s) >= max_s {
             self.pinned_bottom = true;
         }
     }
@@ -626,7 +640,7 @@ pub(crate) async fn run_chat(
                             &textarea,
                             status.is_some(),
                         );
-                        scroll.page_up(vis_h);
+                        scroll.page_up(rows_len, vis_h);
                         scroll.clamp_when_detached(rows_len, vis_h);
                         status = None;
                     }
