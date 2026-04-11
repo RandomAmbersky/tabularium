@@ -10,10 +10,16 @@ import {
 } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
+  createDirectory,
+  createDocument,
+  deleteEntry,
   type ListedEntry,
   getDocument,
   listDirectory,
+  renameDirectory,
+  renameDocument,
   searchDocuments,
+  setEntryDescription,
   type SearchHit,
 } from "../../api/client";
 import { useAppShell } from "../../app/appShellContext";
@@ -56,6 +62,53 @@ const ENTRIES_DELEGATE_KEYS = new Set([
 
 function childPath(dir: string, name: string): string {
   return dir === "/" ? `/${name}` : `${dir}/${name}`;
+}
+
+function replacePathPrefix(
+  value: string,
+  oldPrefix: string,
+  newPrefix: string,
+): string {
+  if (value === oldPrefix) {
+    return newPrefix;
+  }
+  const pref = `${oldPrefix}/`;
+  if (value.startsWith(pref)) {
+    return `${newPrefix}${value.slice(oldPrefix.length)}`;
+  }
+  return value;
+}
+
+function invalidNameReason(nameRaw: string): string | null {
+  const name = nameRaw.trim();
+  if (name === "") {
+    return "Name is required.";
+  }
+  if (name === "." || name === "..") {
+    return "Name cannot be . or ..";
+  }
+  if (name.includes("/") || name.includes("\\")) {
+    return "Name cannot contain path separators.";
+  }
+  return null;
+}
+
+type EntryAction =
+  | "create-dir"
+  | "create-file"
+  | "rename"
+  | "describe"
+  | "delete";
+
+interface DialogState {
+  action: EntryAction;
+  targetPath: string;
+  targetName: string;
+  targetKind: number | null;
+  inputName: string;
+  inputDescription: string;
+  error: string | null;
+  submitting: boolean;
 }
 
 const PREVIEW_SCROLL_STEP = 48;
@@ -157,6 +210,8 @@ export function EntriesView() {
   const listScrollRef = useRef<HTMLUListElement>(null);
   const searchListRef = useRef<HTMLUListElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const modalNameInputRef = useRef<HTMLInputElement>(null);
+  const modalDescriptionRef = useRef<HTMLTextAreaElement>(null);
   const snapshotRef = useRef<{
     dirPath: string;
     selectedIndex: number;
@@ -190,6 +245,7 @@ export function EntriesView() {
   const [entries, setEntries] = useState<ListedEntry[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [loadingList, setLoadingList] = useState(true);
+  const [listReloadNonce, setListReloadNonce] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [focusPane, setFocusPane] = useState<"tree" | "preview">("tree");
   const [previewContent, setPreviewContent] = useState<string | null>(null);
@@ -215,6 +271,7 @@ export function EntriesView() {
   const [previewHighlightQuery, setPreviewHighlightQuery] = useState<
     string | null
   >(null);
+  const [dialogState, setDialogState] = useState<DialogState | null>(null);
 
   const orderedEntries = useMemo(
     () => orderEntriesForDisplay(entries, entrySort),
@@ -249,6 +306,15 @@ export function EntriesView() {
   searchRowsRef.current = searchRows;
   selectedIndexRef.current = selectedIndex;
   searchSelectedIndexRef.current = searchSelectedIndex;
+
+  const selectedEntry =
+    displayRows[selectedIndex]?.kind === "entry"
+      ? displayRows[selectedIndex].entry
+      : null;
+  const selectedEntryPath =
+    selectedEntry == null ? null : childPath(dirPath, selectedEntry.name);
+  const hasDialog = dialogState != null;
+  const mutationDisabled = loadingList || searchModeUi || hasDialog;
 
   useEffect(() => {
     if (firedQuery.trim() === "") {
@@ -299,6 +365,28 @@ export function EntriesView() {
   const bumpOpenDocumentReload = useCallback(() => {
     setDocReloadNonce((n) => n + 1);
   }, []);
+
+  const reloadEntries = useCallback(() => {
+    setListReloadNonce((n) => n + 1);
+  }, []);
+
+  const setOpenPath = useCallback(
+    (nextOpen: string | null) => {
+      setSearchParams(
+        (prev) => {
+          const n = new URLSearchParams(prev);
+          if (nextOpen == null) {
+            n.delete(OPEN_Q);
+          } else {
+            n.set(OPEN_Q, nextOpen);
+          }
+          return n;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   useEffect(() => {
     if (firedQuery.trim() === "") {
@@ -428,7 +516,7 @@ export function EntriesView() {
   useLayoutEffect(() => {
     setLoadingList(true);
     setEntries([]);
-  }, [dirPath]);
+  }, [dirPath, listReloadNonce]);
 
   useEffect(() => {
     let cancelled = false;
@@ -472,7 +560,7 @@ export function EntriesView() {
     return () => {
       cancelled = true;
     };
-  }, [dirPath, setAppReady]);
+  }, [dirPath, listReloadNonce, setAppReady]);
 
   useEffect(() => {
     if (!openDocPath) {
@@ -596,15 +684,8 @@ export function EntriesView() {
       return;
     }
     setPreviewHighlightQuery(null);
-    setSearchParams(
-      (prev) => {
-        const n = new URLSearchParams(prev);
-        n.delete(OPEN_Q);
-        return n;
-      },
-      { replace: true },
-    );
-  }, [confirmDiscardIfNeeded, setSearchParams]);
+    setOpenPath(null);
+  }, [confirmDiscardIfNeeded, setOpenPath]);
 
   const focusSearchResults = useCallback(() => {
     setFocusPane("tree");
@@ -1007,7 +1088,8 @@ export function EntriesView() {
   const kbdEnabled =
     location.pathname.startsWith("/entries") &&
     (!searchModeUi || focusPane === "preview") &&
-    documentSurface !== "chat";
+    documentSurface !== "chat" &&
+    !hasDialog;
 
   useLibraryKeyboard(kbdEnabled, {
     onArrowUp: () => {
@@ -1183,6 +1265,226 @@ export function EntriesView() {
     }
   };
 
+  const openCreateDialog = useCallback(
+    (action: "create-dir" | "create-file") => {
+      setDialogState({
+        action,
+        targetPath: dirPath,
+        targetName: "",
+        targetKind: null,
+        inputName: "",
+        inputDescription: "",
+        error: null,
+        submitting: false,
+      });
+    },
+    [dirPath],
+  );
+
+  const openRenameDialog = useCallback(() => {
+    if (selectedEntry == null || selectedEntryPath == null) {
+      return;
+    }
+    setDialogState({
+      action: "rename",
+      targetPath: selectedEntryPath,
+      targetName: selectedEntry.name,
+      targetKind: selectedEntry.kind,
+      inputName: selectedEntry.name,
+      inputDescription: "",
+      error: null,
+      submitting: false,
+    });
+  }, [selectedEntry, selectedEntryPath]);
+
+  const openDescribeDialog = useCallback(() => {
+    if (selectedEntry == null || selectedEntryPath == null) {
+      return;
+    }
+    setDialogState({
+      action: "describe",
+      targetPath: selectedEntryPath,
+      targetName: selectedEntry.name,
+      targetKind: selectedEntry.kind,
+      inputName: "",
+      inputDescription: selectedEntry.description ?? "",
+      error: null,
+      submitting: false,
+    });
+  }, [selectedEntry, selectedEntryPath]);
+
+  const openDeleteDialog = useCallback(() => {
+    if (selectedEntry == null || selectedEntryPath == null) {
+      return;
+    }
+    setDialogState({
+      action: "delete",
+      targetPath: selectedEntryPath,
+      targetName: selectedEntry.name,
+      targetKind: selectedEntry.kind,
+      inputName: "",
+      inputDescription: "",
+      error: null,
+      submitting: false,
+    });
+  }, [selectedEntry, selectedEntryPath]);
+
+  const closeDialog = useCallback(() => {
+    setDialogState((prev) => (prev?.submitting ? prev : null));
+  }, []);
+
+  const submitDialog = useCallback(async () => {
+    const state = dialogState;
+    if (state == null || state.submitting) {
+      return;
+    }
+    setDialogState((prev) =>
+      prev == null ? prev : { ...prev, submitting: true, error: null },
+    );
+    try {
+      if (state.action === "create-dir") {
+        const reason = invalidNameReason(state.inputName);
+        if (reason) {
+          throw new Error(reason);
+        }
+        const name = state.inputName.trim();
+        const newPath = childPath(dirPath, name);
+        await createDirectory(newPath);
+        pendingFocusName.current = name;
+        reloadEntries();
+      } else if (state.action === "create-file") {
+        const reason = invalidNameReason(state.inputName);
+        if (reason) {
+          throw new Error(reason);
+        }
+        const name = state.inputName.trim();
+        const newPath = childPath(dirPath, name);
+        await createDocument(newPath, "");
+        pendingFocusName.current = name;
+        navigate(withOpenDocQuery(dirPath, newPath));
+        setFocusPane("preview");
+        if (isMobile) {
+          setMobilePanel("preview");
+        }
+        reloadEntries();
+      } else if (state.action === "rename") {
+        const reason = invalidNameReason(state.inputName);
+        if (reason) {
+          throw new Error(reason);
+        }
+        const nextName = state.inputName.trim();
+        const sourcePath = state.targetPath;
+        if (state.targetKind === KIND_DIR) {
+          const newPath = childPath(parentPath(sourcePath), nextName);
+          await renameDirectory(sourcePath, newPath);
+          pendingFocusName.current = nextName;
+          if (openDocPath != null) {
+            const replaced = replacePathPrefix(
+              openDocPath,
+              sourcePath,
+              newPath,
+            );
+            if (replaced !== openDocPath) {
+              setOpenPath(replaced);
+            }
+          }
+        } else {
+          await renameDocument(sourcePath, nextName);
+          const newPath = childPath(parentPath(sourcePath), nextName);
+          pendingFocusName.current = nextName;
+          if (openDocPath === sourcePath) {
+            setOpenPath(newPath);
+          }
+        }
+        reloadEntries();
+      } else if (state.action === "describe") {
+        await setEntryDescription(
+          state.targetPath,
+          state.inputDescription.trim(),
+        );
+        pendingFocusName.current = state.targetName;
+        reloadEntries();
+      } else {
+        const isDir = state.targetKind === KIND_DIR;
+        await deleteEntry(state.targetPath, isDir);
+        const idx = orderedEntries.findIndex(
+          (e) => e.name === state.targetName && e.kind === state.targetKind,
+        );
+        const nearest =
+          idx >= 0
+            ? (orderedEntries[idx + 1] ?? orderedEntries[idx - 1] ?? null)
+            : null;
+        pendingFocusName.current = nearest?.name ?? null;
+        if (
+          openDocPath === state.targetPath ||
+          (isDir &&
+            openDocPath != null &&
+            openDocPath.startsWith(`${state.targetPath}/`))
+        ) {
+          setPreviewHighlightQuery(null);
+          setOpenPath(null);
+        }
+        reloadEntries();
+      }
+      setDialogState(null);
+    } catch (e) {
+      setDialogState((prev) =>
+        prev == null
+          ? prev
+          : {
+              ...prev,
+              submitting: false,
+              error: e instanceof Error ? e.message : String(e),
+            },
+      );
+    }
+  }, [
+    dialogState,
+    dirPath,
+    isMobile,
+    navigate,
+    openDocPath,
+    orderedEntries,
+    reloadEntries,
+    setOpenPath,
+  ]);
+
+  useEffect(() => {
+    if (dialogState == null || dialogState.submitting) {
+      return;
+    }
+    const onKeyDown = (ev: globalThis.KeyboardEvent) => {
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        closeDialog();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [closeDialog, dialogState]);
+
+  useEffect(() => {
+    if (dialogState == null) {
+      return;
+    }
+    const id = requestAnimationFrame(() => {
+      if (
+        dialogState.action === "create-dir" ||
+        dialogState.action === "create-file" ||
+        dialogState.action === "rename"
+      ) {
+        modalNameInputRef.current?.focus();
+      } else if (dialogState.action === "describe") {
+        modalDescriptionRef.current?.focus();
+      }
+    });
+    return () => {
+      cancelAnimationFrame(id);
+    };
+  }, [dialogState]);
+
   const showTree = !isMobile || mobilePanel === "entries";
   const showPreview = !isMobile || mobilePanel === "preview";
 
@@ -1241,6 +1543,57 @@ export function EntriesView() {
             }}
           >
             Search
+          </button>
+        </div>
+        <div className={styles.actionsBar} data-print-hide>
+          <button
+            type="button"
+            className={styles.actionBtn}
+            data-testid="entries-action-create-dir"
+            disabled={mutationDisabled}
+            onClick={() => {
+              openCreateDialog("create-dir");
+            }}
+          >
+            New folder
+          </button>
+          <button
+            type="button"
+            className={styles.actionBtn}
+            data-testid="entries-action-create-file"
+            disabled={mutationDisabled}
+            onClick={() => {
+              openCreateDialog("create-file");
+            }}
+          >
+            New file
+          </button>
+          <button
+            type="button"
+            className={styles.actionBtn}
+            data-testid="entries-action-rename"
+            disabled={mutationDisabled || selectedEntry == null}
+            onClick={openRenameDialog}
+          >
+            Rename
+          </button>
+          <button
+            type="button"
+            className={styles.actionBtn}
+            data-testid="entries-action-describe"
+            disabled={mutationDisabled || selectedEntry == null}
+            onClick={openDescribeDialog}
+          >
+            Description
+          </button>
+          <button
+            type="button"
+            className={`${styles.actionBtn} ${styles.actionBtnDanger}`}
+            data-testid="entries-action-delete"
+            disabled={mutationDisabled || selectedEntry == null}
+            onClick={openDeleteDialog}
+          >
+            Delete
           </button>
         </div>
         <div className={styles.split}>
@@ -1328,6 +1681,129 @@ export function EntriesView() {
           </div>
         </div>
       </div>
+      {dialogState ? (
+        <div className={styles.modalOverlay} data-testid="entries-action-modal">
+          <form
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            data-testid={`entries-action-modal-${dialogState.action}`}
+            onSubmit={(ev) => {
+              ev.preventDefault();
+              void submitDialog();
+            }}
+          >
+            <h3 className={styles.modalTitle}>
+              {dialogState.action === "create-dir" ? "Create folder" : null}
+              {dialogState.action === "create-file" ? "Create file" : null}
+              {dialogState.action === "rename"
+                ? `Rename ${dialogState.targetName}`
+                : null}
+              {dialogState.action === "describe"
+                ? `Description for ${dialogState.targetName}`
+                : null}
+              {dialogState.action === "delete" ? "Delete entry" : null}
+            </h3>
+            {dialogState.action === "create-dir" ||
+            dialogState.action === "create-file" ||
+            dialogState.action === "rename" ? (
+              <label className={styles.modalField}>
+                Name
+                <input
+                  ref={modalNameInputRef}
+                  type="text"
+                  className={styles.modalInput}
+                  data-testid="entries-action-name-input"
+                  value={dialogState.inputName}
+                  onChange={(ev) => {
+                    const next = ev.target.value;
+                    setDialogState((prev) =>
+                      prev == null
+                        ? prev
+                        : {
+                            ...prev,
+                            inputName: next,
+                            error: invalidNameReason(next),
+                          },
+                    );
+                  }}
+                  disabled={dialogState.submitting}
+                />
+              </label>
+            ) : null}
+            {dialogState.action === "describe" ? (
+              <label className={styles.modalField}>
+                Description
+                <textarea
+                  ref={modalDescriptionRef}
+                  className={styles.modalTextarea}
+                  data-testid="entries-action-description-input"
+                  value={dialogState.inputDescription}
+                  onChange={(ev) => {
+                    const next = ev.target.value;
+                    setDialogState((prev) =>
+                      prev == null ? prev : { ...prev, inputDescription: next },
+                    );
+                  }}
+                  onKeyDown={(ev) => {
+                    if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
+                      ev.preventDefault();
+                      void submitDialog();
+                    }
+                  }}
+                  disabled={dialogState.submitting}
+                />
+              </label>
+            ) : null}
+            {dialogState.action === "delete" ? (
+              <p
+                className={styles.modalText}
+                data-testid="entries-action-delete-text"
+              >
+                {dialogState.targetKind === KIND_DIR
+                  ? `Delete ${dialogState.targetPath} and all its contents?`
+                  : `Delete ${dialogState.targetPath}?`}
+              </p>
+            ) : null}
+            {dialogState.error ? (
+              <p
+                className={styles.modalError}
+                data-testid="entries-action-modal-error"
+              >
+                {dialogState.error}
+              </p>
+            ) : null}
+            <div className={styles.modalButtons}>
+              <button
+                type="button"
+                className={styles.modalBtn}
+                data-testid="entries-action-cancel"
+                onClick={closeDialog}
+                disabled={dialogState.submitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className={`${styles.modalBtn} ${
+                  dialogState.action === "delete" ? styles.modalBtnDanger : ""
+                }`}
+                data-testid="entries-action-submit"
+                autoFocus
+                disabled={
+                  dialogState.submitting ||
+                  ((dialogState.action === "create-dir" ||
+                    dialogState.action === "create-file" ||
+                    dialogState.action === "rename") &&
+                    invalidNameReason(dialogState.inputName) != null)
+                }
+              >
+                {dialogState.submitting ? "Working…" : "Confirm"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </>
   );
 }

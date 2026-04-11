@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type KeyboardEvent,
   type MouseEvent,
@@ -86,6 +87,7 @@ export const PreviewPane = forwardRef<HTMLDivElement, PreviewPaneProps>(
     ref,
   ) {
     const navigate = useNavigate();
+    const editorRef = useRef<HTMLTextAreaElement>(null);
     const [rawMode, setRawMode] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [draft, setDraft] = useState("");
@@ -252,6 +254,20 @@ export const PreviewPane = forwardRef<HTMLDivElement, PreviewPaneProps>(
     useEffect(() => {
       onEditSessionChange?.({ active: editMode, dirty });
     }, [editMode, dirty, onEditSessionChange]);
+
+    useEffect(() => {
+      if (!editMode) {
+        return;
+      }
+      const id = requestAnimationFrame(() => {
+        editorRef.current?.focus();
+        const len = editorRef.current?.value.length ?? 0;
+        editorRef.current?.setSelectionRange(len, len);
+      });
+      return () => {
+        cancelAnimationFrame(id);
+      };
+    }, [editMode]);
 
     const handleSave = useCallback(async () => {
       if (!pathLabel || saving || draft === baseline) {
@@ -441,6 +457,7 @@ export const PreviewPane = forwardRef<HTMLDivElement, PreviewPaneProps>(
                 </p>
               ) : null}
               <textarea
+                ref={editorRef}
                 className={styles.editor}
                 data-testid="preview-editor"
                 aria-label="Edit document"

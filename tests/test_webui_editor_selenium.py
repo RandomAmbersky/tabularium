@@ -183,6 +183,25 @@ def test_editor_t03_click_edit_enters_mode(
     )
 
 
+def test_editor_t03b_edit_focuses_textarea(
+    selenium_driver,
+    tabularium_base_url,
+    seed_editor_doc: dict,
+):
+    """T03b — Edit enters mode and focuses textarea."""
+    selenium_driver.set_window_size(1200, 800)
+    s = seed_editor_doc
+    _open_editor_doc(selenium_driver, tabularium_base_url, s["root"], "note.md")
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='preview-edit']").click()
+    ta = _wait(selenium_driver).until(
+        EC.visibility_of_element_located(
+            (By.CSS_SELECTOR, "[data-testid='preview-editor']"),
+        ),
+    )
+    focused = selenium_driver.execute_script("return document.activeElement;")
+    assert focused.id == ta.id
+
+
 def test_editor_t04_raw_toggle_disabled_in_edit_mode(
     selenium_driver,
     tabularium_base_url,

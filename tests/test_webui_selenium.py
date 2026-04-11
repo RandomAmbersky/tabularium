@@ -108,6 +108,13 @@ def _open_seed_dir_and_wait(driver, seed_dir: str):
     )
 
 
+def _open_action_modal(driver, action: str):
+    driver.find_element(By.CSS_SELECTOR, f"[data-testid='entries-action-{action}']").click()
+    _wait(driver).until(
+        EC.visibility_of_element_located((By.CSS_SELECTOR, "[data-testid='entries-action-modal']")),
+    )
+
+
 @pytest.fixture
 def seed_dir(tabularium_base_url: str) -> str:
     slug = uuid.uuid4().hex[:8]
@@ -1330,3 +1337,202 @@ def test_h17_root_click_no_restore_memory(selenium_driver, tabularium_base_url, 
         ),
     )
     assert _selected_has_nav(selenium_driver, "root")
+
+
+# --- Group I — entries CRUD actions (webui-fm) ---
+
+
+def test_i1_create_folder_button(selenium_driver, tabularium_base_url, seed_dir: str):
+    name = f"new_folder_{uuid.uuid4().hex[:6]}"
+    selenium_driver.get(tabularium_base_url + "/entries")
+    _wait_app_ready(selenium_driver)
+    _open_seed_dir_and_wait(selenium_driver, seed_dir)
+    _open_action_modal(selenium_driver, "create-dir")
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='entries-action-name-input']").send_keys(
+        name,
+    )
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='entries-action-submit']").click()
+    _wait(selenium_driver).until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, f"[data-entry-name='{name}'][data-entry-kind='dir']")),
+    )
+
+
+def test_i2_create_file_opens_preview(selenium_driver, tabularium_base_url, seed_dir: str):
+    name = f"new_file_{uuid.uuid4().hex[:6]}.md"
+    selenium_driver.get(tabularium_base_url + "/entries")
+    _wait_app_ready(selenium_driver)
+    _open_seed_dir_and_wait(selenium_driver, seed_dir)
+    _open_action_modal(selenium_driver, "create-file")
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='entries-action-name-input']").send_keys(
+        name,
+    )
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='entries-action-submit']").click()
+    _wait(selenium_driver).until(
+        EC.text_to_be_present_in_element(
+            (By.CSS_SELECTOR, "[data-testid='preview-path']"),
+            f"/{seed_dir}/{name}",
+        ),
+    )
+    _wait(selenium_driver).until(lambda d: "open=%2F" in d.current_url and name in d.current_url)
+
+
+def test_i3_rename_file(selenium_driver, tabularium_base_url, seed_dir: str):
+    new_name = f"renamed_{uuid.uuid4().hex[:6]}.md"
+    selenium_driver.get(tabularium_base_url + "/entries")
+    _wait_app_ready(selenium_driver)
+    _open_seed_dir_and_wait(selenium_driver, seed_dir)
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-entry-name='plain.txt']").click()
+    _open_action_modal(selenium_driver, "rename")
+    input_el = selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='entries-action-name-input']")
+    input_el.clear()
+    input_el.send_keys(new_name)
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='entries-action-submit']").click()
+    _wait(selenium_driver).until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, f"[data-entry-name='{new_name}'][data-entry-kind='file']")),
+    )
+    assert not selenium_driver.find_elements(By.CSS_SELECTOR, "[data-entry-name='plain.txt']")
+
+
+def test_i4_rename_directory(selenium_driver, tabularium_base_url, seed_nested: str):
+    new_name = f"nest_{uuid.uuid4().hex[:6]}"
+    selenium_driver.get(tabularium_base_url + "/entries")
+    _wait_app_ready(selenium_driver)
+    _open_seed_dir_and_wait(selenium_driver, seed_nested)
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-entry-name='nested']").click()
+    _open_action_modal(selenium_driver, "rename")
+    input_el = selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='entries-action-name-input']")
+    input_el.clear()
+    input_el.send_keys(new_name)
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='entries-action-submit']").click()
+    _wait(selenium_driver).until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, f"[data-entry-name='{new_name}'][data-entry-kind='dir']")),
+    )
+
+
+def test_i5_edit_description(selenium_driver, tabularium_base_url, seed_dir: str):
+    note = f"Selenium note {uuid.uuid4().hex[:6]}"
+    selenium_driver.get(tabularium_base_url + "/entries")
+    _wait_app_ready(selenium_driver)
+    _open_seed_dir_and_wait(selenium_driver, seed_dir)
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-entry-name='readme.md']").click()
+    _open_action_modal(selenium_driver, "describe")
+    input_el = selenium_driver.find_element(
+        By.CSS_SELECTOR,
+        "[data-testid='entries-action-description-input']",
+    )
+    input_el.clear()
+    input_el.send_keys(note)
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='entries-action-submit']").click()
+    _wait(selenium_driver).until(
+        EC.text_to_be_present_in_element((By.CSS_SELECTOR, "[data-entry-name='readme.md']"), note),
+    )
+
+
+def test_i6_delete_cancel_keeps_entry(selenium_driver, tabularium_base_url, seed_dir: str):
+    selenium_driver.get(tabularium_base_url + "/entries")
+    _wait_app_ready(selenium_driver)
+    _open_seed_dir_and_wait(selenium_driver, seed_dir)
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-entry-name='plain.txt']").click()
+    _open_action_modal(selenium_driver, "delete")
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='entries-action-cancel']").click()
+    _wait(selenium_driver).until(
+        EC.invisibility_of_element_located((By.CSS_SELECTOR, "[data-testid='entries-action-modal']")),
+    )
+    assert selenium_driver.find_elements(By.CSS_SELECTOR, "[data-entry-name='plain.txt']")
+
+
+def test_i7_delete_confirm_removes_entry(selenium_driver, tabularium_base_url, seed_dir: str):
+    selenium_driver.get(tabularium_base_url + "/entries")
+    _wait_app_ready(selenium_driver)
+    _open_seed_dir_and_wait(selenium_driver, seed_dir)
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-entry-name='plain.txt']").click()
+    _open_action_modal(selenium_driver, "delete")
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='entries-action-submit']").click()
+    _wait(selenium_driver).until_not(
+        EC.presence_of_element_located((By.CSS_SELECTOR, "[data-entry-name='plain.txt']")),
+    )
+
+
+def test_i8_delete_open_document_clears_open_query(
+    selenium_driver, tabularium_base_url, seed_dir: str
+):
+    selenium_driver.set_window_size(1200, 800)
+    selenium_driver.get(tabularium_base_url + "/entries")
+    _wait_app_ready(selenium_driver)
+    _open_seed_dir_and_wait(selenium_driver, seed_dir)
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-entry-name='readme.md']").click()
+    _wait(selenium_driver).until(lambda d: "open=" in d.current_url)
+    _open_action_modal(selenium_driver, "delete")
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='entries-action-submit']").click()
+    _wait(selenium_driver).until_not(
+        EC.presence_of_element_located((By.CSS_SELECTOR, "[data-entry-name='readme.md']")),
+    )
+    _wait(selenium_driver).until(
+        EC.text_to_be_present_in_element(
+            (By.CSS_SELECTOR, "[data-testid='preview-pane']"),
+            "Select a file",
+        ),
+    )
+    assert "open=" not in selenium_driver.current_url
+
+
+def test_i9_enter_applies_create_folder(selenium_driver, tabularium_base_url, seed_dir: str):
+    name = f"enter_folder_{uuid.uuid4().hex[:6]}"
+    selenium_driver.get(tabularium_base_url + "/entries")
+    _wait_app_ready(selenium_driver)
+    _open_seed_dir_and_wait(selenium_driver, seed_dir)
+    _open_action_modal(selenium_driver, "create-dir")
+    input_el = selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='entries-action-name-input']")
+    input_el.send_keys(name)
+    input_el.send_keys(Keys.ENTER)
+    _wait(selenium_driver).until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, f"[data-entry-name='{name}'][data-entry-kind='dir']")),
+    )
+
+
+def test_i10_enter_applies_delete_modal(selenium_driver, tabularium_base_url, seed_dir: str):
+    selenium_driver.get(tabularium_base_url + "/entries")
+    _wait_app_ready(selenium_driver)
+    _open_seed_dir_and_wait(selenium_driver, seed_dir)
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-entry-name='plain.txt']").click()
+    _open_action_modal(selenium_driver, "delete")
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-testid='entries-action-submit']").send_keys(
+        Keys.ENTER,
+    )
+    _wait(selenium_driver).until_not(
+        EC.presence_of_element_located((By.CSS_SELECTOR, "[data-entry-name='plain.txt']")),
+    )
+
+
+def test_i11_rename_modal_focuses_name_input(selenium_driver, tabularium_base_url, seed_dir: str):
+    selenium_driver.get(tabularium_base_url + "/entries")
+    _wait_app_ready(selenium_driver)
+    _open_seed_dir_and_wait(selenium_driver, seed_dir)
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-entry-name='plain.txt']").click()
+    _open_action_modal(selenium_driver, "rename")
+    _wait(selenium_driver).until(
+        EC.visibility_of_element_located((By.CSS_SELECTOR, "[data-testid='entries-action-name-input']")),
+    )
+    focused_testid = selenium_driver.execute_script(
+        "return document.activeElement?.getAttribute('data-testid');",
+    )
+    assert focused_testid == "entries-action-name-input"
+
+
+def test_i12_description_modal_focuses_textarea(
+    selenium_driver, tabularium_base_url, seed_dir: str
+):
+    selenium_driver.get(tabularium_base_url + "/entries")
+    _wait_app_ready(selenium_driver)
+    _open_seed_dir_and_wait(selenium_driver, seed_dir)
+    selenium_driver.find_element(By.CSS_SELECTOR, "[data-entry-name='readme.md']").click()
+    _open_action_modal(selenium_driver, "describe")
+    _wait(selenium_driver).until(
+        EC.visibility_of_element_located(
+            (By.CSS_SELECTOR, "[data-testid='entries-action-description-input']"),
+        ),
+    )
+    focused_testid = selenium_driver.execute_script(
+        "return document.activeElement?.getAttribute('data-testid');",
+    )
+    assert focused_testid == "entries-action-description-input"
