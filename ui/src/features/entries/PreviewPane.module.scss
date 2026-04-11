@@ -434,3 +434,197 @@
 .err {
   color: $risk;
 }
+
+@media print {
+  .pane {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    background: #fff !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .header {
+    border-bottom: 1px solid #ccc !important;
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+  }
+
+  .headerTitle {
+    color: #000 !important;
+  }
+
+  .headerActions {
+    display: none !important;
+  }
+
+  .body,
+  .bodyEditing,
+  .bodyChat {
+    flex: none !important;
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0.5rem 0.75rem !important;
+    gap: 0.35rem !important;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .editArea {
+    min-height: 0 !important;
+  }
+
+  .editor {
+    max-height: none !important;
+    overflow: visible !important;
+    resize: none !important;
+    border: 1px solid #ccc !important;
+    background: #fff !important;
+    color: #000 !important;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .pre {
+    color: #000 !important;
+    overflow: visible !important;
+    max-height: none !important;
+    white-space: pre-wrap !important;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .markdown {
+    color: #000 !important;
+    overflow: visible !important;
+    max-height: none !important;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      color: #000 !important;
+      break-after: avoid-page;
+    }
+
+    h1 {
+      border-bottom-color: #ccc !important;
+    }
+
+    blockquote {
+      background: #f5f5f5 !important;
+      color: #222 !important;
+      border-left-color: #666 !important;
+    }
+
+    th,
+    td {
+      border-color: #ccc !important;
+    }
+
+    th {
+      background: #eee !important;
+      color: #000 !important;
+    }
+
+    tr:nth-child(even) td {
+      background: #f9f9f9 !important;
+    }
+
+    code {
+      background: #eee !important;
+      color: #000 !important;
+    }
+
+    pre {
+      overflow: visible !important;
+      max-height: none !important;
+      border-color: #ccc !important;
+      background: #f5f5f5 !important;
+      page-break-inside: auto;
+      scrollbar-width: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+    }
+
+    a {
+      color: #000 !important;
+      text-decoration: underline;
+    }
+
+    hr {
+      border-top-color: #ccc !important;
+    }
+
+    :global(mark.previewHighlight) {
+      background: #ccc !important;
+      color: #000 !important;
+    }
+  }
+
+  .empty {
+    color: #333 !important;
+  }
+
+  .err,
+  .saveErr {
+    color: #000 !important;
+  }
+
+  /* Chat chrome — print transcript only (same module as DocumentChatBody). */
+  .chatGate,
+  .chatBanner,
+  .chatStatus,
+  .chatComposerRow {
+    display: none !important;
+  }
+
+  .chatWrap {
+    overflow: visible !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    gap: 0 !important;
+  }
+
+  .chatTranscript {
+    overflow: visible !important;
+    max-height: none !important;
+    flex: none !important;
+    min-height: 0 !important;
+    padding-right: 0 !important;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  :global(.katex-display) {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+}

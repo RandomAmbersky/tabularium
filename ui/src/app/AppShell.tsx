@@ -19,7 +19,7 @@ export function AppShell() {
   return (
     <AppShellContext.Provider value={ctx}>
       <div className={styles.shell}>
-        <header className={styles.topNav}>
+        <header className={styles.topNav} data-print-hide>
           <span className={styles.brandRow}>
             <img
               className={styles.brandLogo}

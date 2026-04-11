@@ -425,7 +425,11 @@ export const PreviewPane = forwardRef<HTMLDivElement, PreviewPaneProps>(
               {editPrepareError}
             </p>
           ) : null}
-          {loading ? <p className={styles.empty}>Loading…</p> : null}
+          {loading ? (
+            <p className={styles.empty} data-print-hide>
+              Loading…
+            </p>
+          ) : null}
           {!loading && !error && content === null ? (
             <p className={styles.empty}>Select a file — the Emperor watches.</p>
           ) : null}

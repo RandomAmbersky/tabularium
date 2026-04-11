@@ -66,3 +66,17 @@
   display: flex;
   flex-direction: column;
 }
+
+@media print {
+  .shell {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .main {
+    flex: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+}

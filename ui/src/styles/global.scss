@@ -28,3 +28,25 @@ button {
   outline: 2px solid $accent;
   outline-offset: 2px;
 }
+
+/* Print (meetings/printing): one hook for chrome; panes reset in feature SCSS. */
+@media print {
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  html,
+  body,
+  #root {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+}

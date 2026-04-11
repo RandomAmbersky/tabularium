@@ -166,3 +166,65 @@ $row-grid: [glyph] minmax(1.25rem, auto) [name] minmax(0, 1fr) [size]
   line-height: 1.25;
   white-space: nowrap;
 }
+
+@media print {
+  .wrap {
+    min-height: 0 !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .pathRow,
+  .headerRow {
+    border-color: #ccc !important;
+    color: #000 !important;
+    background: #fff !important;
+  }
+
+  .headerCell {
+    color: #000 !important;
+  }
+
+  .list {
+    flex: none !important;
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .row {
+    break-inside: avoid-page;
+  }
+
+  .row:hover {
+    background: transparent !important;
+  }
+
+  .rowSelected {
+    background: #f0f0f0 !important;
+    border-left-color: #000 !important;
+  }
+
+  .rowFocused {
+    outline: none !important;
+  }
+
+  .nameDir,
+  .nameFile,
+  .nameNav,
+  .name {
+    color: #000 !important;
+  }
+
+  .desc,
+  .sizeCol,
+  .modCol {
+    color: #333 !important;
+  }
+}

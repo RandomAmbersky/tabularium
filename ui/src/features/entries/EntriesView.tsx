@@ -1188,9 +1188,13 @@ export function EntriesView() {
 
   return (
     <>
-      {listError ? <div className={styles.errBanner}>{listError}</div> : null}
+      {listError ? (
+        <div className={styles.errBanner} data-print-hide>
+          {listError}
+        </div>
+      ) : null}
       <div className={styles.layout}>
-        <div className={styles.searchBar}>
+        <div className={styles.searchBar} data-print-hide>
           <select
             className={styles.searchScope}
             aria-label="Search scope"
@@ -1274,6 +1278,7 @@ export function EntriesView() {
               {loadingList && !searchModeUi ? (
                 <div
                   className={styles.treeLoadingOverlay}
+                  data-print-hide
                   data-testid="entries-loading"
                 >
                   Loading entries…
@@ -1291,6 +1296,7 @@ export function EntriesView() {
               <button
                 type="button"
                 className={`${styles.backBtn} ${styles.mobileOnly}`}
+                data-print-hide
                 data-testid="mobile-back"
                 onClick={() => {
                   setMobilePanel("entries");

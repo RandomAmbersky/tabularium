@@ -50,7 +50,11 @@ export const SearchResultsList = forwardRef<
           {error}
         </p>
       ) : null}
-      {loading ? <p className={styles.pathRow}>Searching the stacks…</p> : null}
+      {loading ? (
+        <p className={styles.pathRow} data-print-hide>
+          Searching the stacks…
+        </p>
+      ) : null}
       <ul
         ref={ref}
         className={styles.list}

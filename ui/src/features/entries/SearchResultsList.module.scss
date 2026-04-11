@@ -97,3 +97,58 @@
   font-size: 0.85rem;
   color: $accent;
 }
+
+@media print {
+  .wrap {
+    min-height: 0 !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Visible heading + error rows; loading line keeps .pathRow for screen layout but is removed from print via [data-print-hide]. */
+  .pathRow {
+    border-color: #ccc !important;
+    background: #fff !important;
+  }
+
+  .resultsHeading {
+    color: #000 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+  }
+
+  .list {
+    flex: none !important;
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .row:hover {
+    background: transparent !important;
+  }
+
+  .rowSelected {
+    background: #f0f0f0 !important;
+    border-left-color: #000 !important;
+  }
+
+  .rowFocused {
+    outline: none !important;
+  }
+
+  .path,
+  .nameNav {
+    color: #000 !important;
+  }
+
+  .score {
+    color: #333 !important;
+  }
+}
